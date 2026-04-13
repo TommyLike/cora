@@ -1,0 +1,30 @@
+# community-cli configuration example
+# Copy to ~/.config/community-cli/config.yaml and fill in your values.
+
+services:
+  forum:
+    # spec_url: URL or local path to the service's OpenAPI spec.
+    # Supported: http://, https://, file://, or a bare filesystem path.
+    spec_url: assets/openapi/forum/openapi.json
+
+    # base_url: the actual API root of your Discourse instance.
+    base_url: http://localhost:3000
+
+    auth:
+      discourse:
+        api_key: "YOUR_DISCOURSE_API_KEY"
+        api_username: "system"
+
+  # Example: remote service with HTTP spec endpoint
+  # mail:
+  #   spec_url: https://lists.example.org/openapi.yaml
+  #   base_url: https://lists.example.org
+  #   auth:
+  #     discourse:          # or another provider if your mail service supports it
+  #       api_key: ""
+  #       api_username: ""
+
+# Global spec cache settings (optional — defaults shown)
+spec_cache:
+  ttl: 24h                                              # re-fetch after 24 hours
+  dir: ~/.config/community-cli/cache                   # where to store cached specs

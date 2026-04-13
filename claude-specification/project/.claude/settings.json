@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "阻止 Claude 直接 push 到 main/master，必须走 PR 流程",
+            "command": "jq -r '.tool_input.command' | grep -qE 'git push.*(origin )?(main|master)' && echo '禁止直接 push 到 main/master，请创建 PR' && exit 2 || exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "文件编辑后自动运行 lint，结果反馈给 Claude 以便自动修正",
+            "command": "make lint 2>&1 | tail -30",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "Claude 完成任务后发送 macOS 桌面通知（非 macOS 环境此行无效但不报错）",
+            "command": "osascript -e 'display notification \"Claude 已完成\" with title \"Claude Code\"' 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
