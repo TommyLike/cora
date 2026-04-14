@@ -1,12 +1,11 @@
-# Community CLI
+# Cora
+English Version: ![readme_en.md](readme_en.md)
 
-> English version: [readme_en.md](readme_en.md)
-
-统一的开源社区服务命令行工具。通过单一二进制文件访问论坛、邮件列表、会议、Issue 追踪等社区服务，命令由各后端服务发布的 OpenAPI Spec 动态驱动生成。
-
+**Cora**（Community Collaboration）是统一的开源社区服务命令行工具。通过单一二进制文件访问论坛、邮件列表、会议、Issue 追踪等社区服务，命令由各后端服务发布的 OpenAPI Spec 动态驱动生成。
+![Cora](assets/img/cora.png)
 ## 项目简介
 
-`community-cli` 面向每天需要与多个社区服务交互的开源开发者。无需在各种工具和 Web 页面之间来回切换，所有服务统一使用 `community <服务> <资源> <操作>` 的命令结构。
+`cora` 面向每天需要与多个社区服务交互的开源开发者。无需在各种工具和 Web 页面之间来回切换，所有服务统一使用 `cora <服务> <资源> <操作>` 的命令结构。
 
 **核心特点：**
 
@@ -18,12 +17,12 @@
 ## 命令结构
 
 ```
-community <服务> <资源> <操作> [参数]
+cora <服务> <资源> <操作> [参数]
 ```
 
 | 层级 | 示例 | 来源 |
 |------|------|------|
-| `community` | — | 二进制入口 |
+| `cora` | — | 二进制入口 |
 | `<服务>` | `forum`、`mail`、`issue` | 配置文件 |
 | `<资源>` | `posts`、`topics`、`threads` | OpenAPI `tags[0]` |
 | `<操作>` | `list`、`get`、`create`、`delete` | OpenAPI `operationId` |
@@ -32,25 +31,25 @@ community <服务> <资源> <操作> [参数]
 
 ```bash
 # 列出论坛最新帖子
-community forum posts list
+cora forum posts list
 
 # 获取指定帖子
-community forum posts get --id 42
+cora forum posts get --id 42
 
 # 预览创建帖子的 HTTP 请求（不实际发送）
-community forum posts create --title "Release v1.2.0" --raw "正文内容" --dry-run
+cora forum posts create --title "Release v1.2.0" --raw "正文内容" --dry-run
 
 # 创建帖子
-community forum posts create --title "Release v1.2.0" --raw "正文内容"
+cora forum posts create --title "Release v1.2.0" --raw "正文内容"
 
 # 以 JSON 格式输出并通过 jq 过滤
-community forum posts list --format json | jq '.[].username'
+cora forum posts list --format json | jq '.[].username'
 
 # 强制刷新 OpenAPI Spec 缓存
-community forum posts list --refresh-spec
+cora forum posts list --refresh-spec
 
 # 手动刷新指定服务的 Spec 缓存
-community spec refresh forum
+cora spec refresh forum
 ```
 
 ### 全局参数
@@ -68,10 +67,10 @@ community spec refresh forum
 **环境要求：** Go 1.22+、make
 
 ```bash
-git clone https://github.com/cncf/community-cli.git
-cd community-cli
+git clone https://github.com/cncf/cora.git
+cd cora
 make build
-mv community /usr/local/bin/
+mv cora /usr/local/bin/
 ```
 
 ### 使用 Docker
@@ -82,8 +81,8 @@ make docker-build
 
 # 运行（挂载本地配置目录）
 docker run --rm \
-  -v ~/.config/community-cli:/root/.config/community-cli:ro \
-  community-cli:latest forum posts list
+  -v ~/.config/cora:/root/.config/cora:ro \
+  cora:latest forum posts list
 ```
 
 或使用 `make docker-run`：
@@ -94,13 +93,13 @@ make docker-run ARGS="forum posts list"
 
 ## 配置
 
-默认读取 `~/.config/community-cli/config.yaml`。可通过环境变量 `COMMUNITY_CLI_CONFIG` 指定其他路径。
+默认读取 `~/.config/cora/config.yaml`。可通过环境变量 `CORA_CONFIG` 指定其他路径。
 
 ### 初始化配置
 
 ```bash
-mkdir -p ~/.config/community-cli
-cp config.example.yaml ~/.config/community-cli/config.yaml
+mkdir -p ~/.config/cora
+cp config.example.yaml ~/.config/cora/config.yaml
 # 编辑文件，填写实际值
 ```
 
@@ -111,7 +110,7 @@ services:
   forum:
     # spec_url：服务 OpenAPI Spec 的地址或本地路径。
     # 支持：http://、https://、file:// 或裸文件路径。
-    spec_url: https://forum.example.org/openapi.json
+    spec_url: assets/openapi/forum/openapi.json
 
     # base_url：API 根地址，Spec 中的路径会拼接到此地址后。
     base_url: https://forum.example.org
@@ -128,8 +127,8 @@ services:
 
 # 全局 Spec 缓存配置（可选，括号内为默认值）。
 spec_cache:
-  ttl: 24h                              # 缓存有效期
-  dir: ~/.config/community-cli/cache    # 缓存存储目录
+  ttl: 24h                      # 缓存有效期
+  dir: ~/.config/cora/cache     # 缓存存储目录
 ```
 
 ### Spec 加载策略
@@ -157,7 +156,7 @@ spec_cache:
 ### 常用命令
 
 ```bash
-make build          # 编译二进制（输出：./community）
+make build          # 编译二进制（输出：./cora）
 make build-prod     # 生产构建（CGO 禁用，去除调试信息）
 make test           # 运行全量测试（含竞态检测）
 make test-unit      # 仅运行短测试（跳过集成测试）
@@ -172,10 +171,10 @@ make clean          # 清理构建产物
 
 ```bash
 # 直接运行（无需先构建）
-go run ./cmd/community -- forum posts list
+go run ./cmd/cora -- forum posts list
 
 # 构建后运行
-make build && ./community forum posts list
+make build && ./cora forum posts list
 ```
 
 ### 使用本地 OpenAPI Spec 文件
@@ -183,8 +182,8 @@ make build && ./community forum posts list
 ```yaml
 services:
   forum:
-    spec_url: file:///path/to/openapi.json   # file:// 协议
-    # spec_url: /path/to/openapi.json        # 裸路径也支持
+    spec_url: assets/openapi/forum/openapi.json   # 相对路径（推荐）
+    # spec_url: file:///path/to/openapi.json      # 绝对路径也支持
     base_url: http://localhost:3000
     auth:
       discourse:
@@ -217,8 +216,8 @@ make test-cover-text
 ### 项目目录结构
 
 ```
-community-cli/
-├── cmd/community/main.go             # 入口，两阶段命令加载
+cora/
+├── cmd/cora/main.go                  # 入口，两阶段命令加载
 ├── internal/
 │   ├── builder/
 │   │   ├── command.go                # OpenAPI Spec → Cobra 命令树
@@ -248,7 +247,7 @@ community-cli/
 ## 接入新服务
 
 1. 确保后端服务在固定地址发布了 OpenAPI 3.0 Spec。
-2. 在 `~/.config/community-cli/config.yaml` 中添加配置：
+2. 在 `~/.config/cora/config.yaml` 中添加配置：
 
    ```yaml
    services:
@@ -260,7 +259,7 @@ community-cli/
 3. 执行任意命令，Spec 会自动拉取并缓存：
 
    ```bash
-   community myservice --help
+   cora myservice --help
    ```
 
 ### 后端服务接入要求
@@ -274,7 +273,7 @@ community-cli/
 
 ```yaml
 x-cli-examples:
-  - "community myservice widgets list --active"
+  - "cora myservice widgets list --active"
 x-cli-flags: [active, limit, cursor]
 ```
 

@@ -1,5 +1,5 @@
-# community-cli configuration example
-# Copy to ~/.config/community-cli/config.yaml and fill in your values.
+# cora configuration example
+# Copy to ~/.config/cora/config.yaml and fill in your values.
 
 services:
   forum:
@@ -26,5 +26,5 @@ services:
 
 # Global spec cache settings (optional — defaults shown)
 spec_cache:
-  ttl: 24h                                              # re-fetch after 24 hours
-  dir: ~/.config/community-cli/cache                   # where to store cached specs
+  ttl: 24h                          # re-fetch after 24 hours
+  dir: ~/.config/cora/cache         # where to store cached specs

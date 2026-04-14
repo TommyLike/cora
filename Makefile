@@ -1,5 +1,5 @@
-BINARY     := community
-CMD        := ./cmd/community
+BINARY     := cora
+CMD        := ./cmd/cora
 VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS    := -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)
@@ -70,7 +70,7 @@ tidy:
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
-IMAGE ?= community-cli
+IMAGE ?= cora
 
 .PHONY: docker-build
 docker-build:
@@ -79,7 +79,7 @@ docker-build:
 .PHONY: docker-run
 docker-run:
 	docker run --rm \
-		-v ~/.config/community-cli:/root/.config/community-cli:ro \
+		-v ~/.config/cora:/root/.config/cora:ro \
 		$(IMAGE):latest $(ARGS)
 
 # ── Help ──────────────────────────────────────────────────────────────────────

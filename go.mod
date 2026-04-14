@@ -1,4 +1,4 @@
-module github.com/cncf/community-cli
+module github.com/cncf/cora
 
 go 1.22
 

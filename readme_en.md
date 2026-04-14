@@ -1,12 +1,12 @@
-# Community CLI
+# Cora
+中文版本：[readme.md](readme.md)
 
-> 中文版本：[readme.md](readme.md)
-
-A unified CLI for open-source community services. Access forums, mailing lists, meetings, issue trackers, and more — all from a single binary, driven by OpenAPI specs published by each backend service.
+Cora, Community Collaboration CLI. A unified command-line interface to interact with community services. Access forums, mailing lists, meetings, issue trackers, and more — all from a single binary, driven by OpenAPI specs published by each backend service.
+![Cora](assets/img/cora.png)
 
 ## Overview
 
-`community-cli` is built for open-source community developers who interact with multiple community services daily. Instead of juggling separate tools and web UIs, you get a consistent `community <service> <resource> <verb>` command structure across all services.
+`cora` (Community Collaboration) is built for open-source community developers who interact with multiple community services daily. Instead of juggling separate tools and web UIs, you get a consistent `cora <service> <resource> <verb>` command structure across all services.
 
 **Key characteristics:**
 
@@ -18,12 +18,12 @@ A unified CLI for open-source community services. Access forums, mailing lists, 
 ## Command Structure
 
 ```
-community <service> <resource> <verb> [flags]
+cora <service> <resource> <verb> [flags]
 ```
 
 | Layer | Example | Source |
 |-------|---------|--------|
-| `community` | — | Binary entry point |
+| `cora` | — | Binary entry point |
 | `<service>` | `forum`, `mail`, `issue` | Config file |
 | `<resource>` | `posts`, `topics`, `threads` | OpenAPI `tags[0]` |
 | `<verb>` | `list`, `get`, `create`, `delete` | OpenAPI `operationId` |
@@ -32,25 +32,25 @@ community <service> <resource> <verb> [flags]
 
 ```bash
 # List recent posts in the forum
-community forum posts list
+cora forum posts list
 
 # Get a specific post
-community forum posts get --id 42
+cora forum posts get --id 42
 
 # Create a new post (preview the HTTP request first)
-community forum posts create --title "Release v1.2.0" --raw "Body text" --dry-run
+cora forum posts create --title "Release v1.2.0" --raw "Body text" --dry-run
 
 # Create a post for real
-community forum posts create --title "Release v1.2.0" --raw "Body text"
+cora forum posts create --title "Release v1.2.0" --raw "Body text"
 
 # Output as JSON and pipe to jq
-community forum posts list --format json | jq '.[].username'
+cora forum posts list --format json | jq '.[].username'
 
 # Force-refresh the cached OpenAPI spec
-community forum posts list --refresh-spec
+cora forum posts list --refresh-spec
 
 # Manage the spec cache directly
-community spec refresh forum
+cora spec refresh forum
 ```
 
 ### Global Flags
@@ -68,10 +68,10 @@ community spec refresh forum
 **Requirements:** Go 1.22+, make
 
 ```bash
-git clone https://github.com/cncf/community-cli.git
-cd community-cli
+git clone https://github.com/cncf/cora.git
+cd cora
 make build
-mv community /usr/local/bin/
+mv cora /usr/local/bin/
 ```
 
 ### Docker
@@ -82,8 +82,8 @@ make docker-build
 
 # Run with your local config directory mounted
 docker run --rm \
-  -v ~/.config/community-cli:/root/.config/community-cli:ro \
-  community-cli:latest forum posts list
+  -v ~/.config/cora:/root/.config/cora:ro \
+  cora:latest forum posts list
 ```
 
 Or use the Makefile shortcut:
@@ -94,13 +94,13 @@ make docker-run ARGS="forum posts list"
 
 ## Configuration
 
-Community CLI reads its configuration from `~/.config/community-cli/config.yaml` by default. Override with the `COMMUNITY_CLI_CONFIG` environment variable.
+Cora reads its configuration from `~/.config/cora/config.yaml` by default. Override with the `CORA_CONFIG` environment variable.
 
 ### Setup
 
 ```bash
-mkdir -p ~/.config/community-cli
-cp config.example.yaml ~/.config/community-cli/config.yaml
+mkdir -p ~/.config/cora
+cp config.example.yaml ~/.config/cora/config.yaml
 # Edit the file and fill in your values
 ```
 
@@ -111,7 +111,7 @@ services:
   forum:
     # spec_url: URL or local path to the service's OpenAPI spec.
     # Supported: http://, https://, file://, or a bare filesystem path.
-    spec_url: https://forum.example.org/openapi.json
+    spec_url: assets/openapi/forum/openapi.json
 
     # base_url: the API root that all paths from the spec are appended to.
     base_url: https://forum.example.org
@@ -129,7 +129,7 @@ services:
 # Global spec cache settings (optional — defaults shown).
 spec_cache:
   ttl: 24h
-  dir: ~/.config/community-cli/cache
+  dir: ~/.config/cora/cache
 ```
 
 ### Spec Loading Behavior
@@ -157,7 +157,7 @@ Use `--refresh-spec` to force a re-fetch regardless of TTL.
 ### Common Commands
 
 ```bash
-make build          # Compile binary (output: ./community)
+make build          # Compile binary (output: ./cora)
 make build-prod     # Production build (CGO disabled, stripped)
 make test           # Run all tests with race detector
 make test-unit      # Run short tests only (skip integration)
@@ -172,10 +172,10 @@ make clean          # Remove build artefacts
 
 ```bash
 # Run without building first
-go run ./cmd/community -- forum posts list
+go run ./cmd/cora -- forum posts list
 
 # Build then run
-make build && ./community forum posts list
+make build && ./cora forum posts list
 ```
 
 ### Using a local OpenAPI spec
@@ -183,8 +183,8 @@ make build && ./community forum posts list
 ```yaml
 services:
   forum:
-    spec_url: file:///path/to/openapi.json   # file:// scheme
-    # spec_url: /path/to/openapi.json        # bare path also works
+    spec_url: assets/openapi/forum/openapi.json   # relative path (recommended)
+    # spec_url: file:///path/to/openapi.json      # absolute path also works
     base_url: http://localhost:3000
     auth:
       discourse:
@@ -217,8 +217,8 @@ Test files by package:
 ### Project Layout
 
 ```
-community-cli/
-├── cmd/community/main.go             # Entry point, two-phase command loading
+cora/
+├── cmd/cora/main.go                  # Entry point, two-phase command loading
 ├── internal/
 │   ├── builder/
 │   │   ├── command.go                # OpenAPI spec → Cobra command tree
@@ -248,7 +248,7 @@ community-cli/
 ## Adding a New Service
 
 1. Ensure the backend exposes an OpenAPI 3.0 spec at a stable URL.
-2. Add an entry to `~/.config/community-cli/config.yaml`:
+2. Add an entry to `~/.config/cora/config.yaml`:
 
    ```yaml
    services:
@@ -260,7 +260,7 @@ community-cli/
 3. Run any command — the spec is fetched and cached automatically:
 
    ```bash
-   community myservice --help
+   cora myservice --help
    ```
 
 ### Backend Service Requirements
@@ -274,7 +274,7 @@ Optional `x-cli-*` extensions for richer CLI output:
 
 ```yaml
 x-cli-examples:
-  - "community myservice widgets list --active"
+  - "cora myservice widgets list --active"
 x-cli-flags: [active, limit, cursor]
 ```
 

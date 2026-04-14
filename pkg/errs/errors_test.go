@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cncf/community-cli/pkg/errs"
+	"github.com/cncf/cora/pkg/errs"
 )
 
 // --- CLIError.Error() ---

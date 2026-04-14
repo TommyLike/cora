@@ -3,7 +3,7 @@ package auth
 import (
 	"net/http"
 
-	"github.com/cncf/community-cli/internal/config"
+	"github.com/cncf/cora/internal/config"
 )
 
 // InjectHeaders adds authentication headers to an outgoing request based on

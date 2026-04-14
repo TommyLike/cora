@@ -11,10 +11,10 @@ import (
 
 const (
 	DefaultCacheTTL = 24 * time.Hour
-	EnvConfigPath   = "COMMUNITY_CLI_CONFIG"
+	EnvConfigPath   = "CORA_CONFIG"
 )
 
-// Config is the root of ~/.config/community-cli/config.yaml.
+// Config is the root of ~/.config/cora/config.yaml.
 type Config struct {
 	Services  map[string]ServiceConfig `yaml:"services"`
 	SpecCache SpecCacheConfig          `yaml:"spec_cache"`
@@ -49,12 +49,12 @@ type DiscourseAuth struct {
 type SpecCacheConfig struct {
 	// TTL is how long a cached spec is considered fresh. Default: 24h.
 	TTL time.Duration `yaml:"ttl"`
-	// Dir is the directory for cache files. Default: ~/.config/community-cli/cache.
+	// Dir is the directory for cache files. Default: ~/.config/cora/cache.
 	Dir string `yaml:"dir"`
 }
 
-// Load reads the config from the default location ($COMMUNITY_CLI_CONFIG or
-// ~/.config/community-cli/config.yaml).  Missing file returns empty defaults.
+// Load reads the config from the default location ($CORA_CONFIG or
+// ~/.config/cora/config.yaml).  Missing file returns empty defaults.
 func Load() (*Config, error) {
 	path := os.Getenv(EnvConfigPath)
 	if path == "" {
@@ -62,7 +62,7 @@ func Load() (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("get home dir: %w", err)
 		}
-		path = filepath.Join(home, ".config", "community-cli", "config.yaml")
+		path = filepath.Join(home, ".config", "cora", "config.yaml")
 	}
 	return LoadFrom(path)
 }
@@ -107,7 +107,7 @@ func defaults() *Config {
 func defaultCacheDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".community-cli-cache"
+		return ".cora-cache"
 	}
-	return filepath.Join(home, ".config", "community-cli", "cache")
+	return filepath.Join(home, ".config", "cora", "cache")
 }

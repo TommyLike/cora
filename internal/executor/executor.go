@@ -10,10 +10,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cncf/community-cli/internal/auth"
-	"github.com/cncf/community-cli/internal/config"
-	"github.com/cncf/community-cli/internal/output"
-	"github.com/cncf/community-cli/pkg/errs"
+	"github.com/cncf/cora/internal/auth"
+	"github.com/cncf/cora/internal/config"
+	"github.com/cncf/cora/internal/output"
+	"github.com/cncf/cora/pkg/errs"
 )
 
 // Request is the input to a single HTTP API call.

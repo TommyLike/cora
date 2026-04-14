@@ -13,8 +13,8 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags "-s -w -X main.Version=${VERSION}" \
-    -o /community \
-    ./cmd/community
+    -o /cora \
+    ./cmd/cora
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 FROM alpine:3.20
@@ -27,15 +27,15 @@ RUN apk --no-cache add ca-certificates
 # where the CLI is run from the project root.
 WORKDIR /app
 
-COPY --from=builder /community /usr/local/bin/community
+COPY --from=builder /cora /usr/local/bin/cora
 
-# Bundle the bundled OpenAPI spec files so the CLI works without a network call
+# Bundle the OpenAPI spec files so the CLI works without a network call
 # to fetch the spec on first run.
 COPY assets/ /app/assets/
 
 # Config is expected to be mounted at runtime.
-# Example: docker run -v ~/.config/community-cli:/root/.config/community-cli:ro community-cli:latest forum posts list
+# Example: docker run -v ~/.config/cora:/root/.config/cora:ro cora:latest forum posts list
 # The spec_url in your config should use the relative path: assets/openapi/forum/openapi.json
-VOLUME ["/root/.config/community-cli"]
+VOLUME ["/root/.config/cora"]
 
-ENTRYPOINT ["community"]
+ENTRYPOINT ["cora"]

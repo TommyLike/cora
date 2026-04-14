@@ -8,8 +8,8 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
-	"github.com/cncf/community-cli/internal/config"
-	"github.com/cncf/community-cli/internal/spec"
+	"github.com/cncf/cora/internal/config"
+	"github.com/cncf/cora/internal/spec"
 )
 
 // Entry holds metadata and the spec loader for one backend service.

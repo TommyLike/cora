@@ -12,7 +12,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
-	"github.com/cncf/community-cli/pkg/errs"
+	"github.com/cncf/cora/pkg/errs"
 )
 
 // Loader loads an OpenAPI spec from a URL or local file, using a local cache
