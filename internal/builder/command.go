@@ -3,7 +3,7 @@
 // Mapping rules:
 //   - Resource  = first operation tag, normalised to lowercase kebab-case.
 //   - Verb      = known prefix from operationId (list/get/create/update/delete/patch),
-//                 falling back to HTTP-method inference.
+//     falling back to HTTP-method inference.
 //   - URL .json suffix is stripped for command names but kept in HTTP requests.
 //   - Discourse auth header params (Api-Key, Api-Username) are silently skipped
 //     from flag generation; they are injected by the executor.

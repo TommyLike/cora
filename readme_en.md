@@ -132,6 +132,39 @@ spec_cache:
   dir: ~/.config/cora/cache
 ```
 
+### Environment Variables
+
+All config values can be overridden by `CORA_`-prefixed environment variables. Environment variables take precedence over the config file. The naming rule: join the config key path with `_`, uppercase it, and prepend `CORA_`.
+
+| Environment variable | Config key | Description |
+|----------------------|-----------|-------------|
+| `CORA_CONFIG` | — | Override the config file path |
+| `CORA_SPEC_CACHE_TTL` | `spec_cache.ttl` | Cache TTL (e.g. `12h`) |
+| `CORA_SPEC_CACHE_DIR` | `spec_cache.dir` | Cache directory path |
+| `CORA_SERVICES_<NAME>_BASE_URL` | `services.<name>.base_url` | Override a service's API root |
+| `CORA_SERVICES_<NAME>_SPEC_URL` | `services.<name>.spec_url` | Override a service's spec URL |
+| `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_KEY` | `services.<name>.auth.discourse.api_key` | Discourse API key |
+| `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_USERNAME` | `services.<name>.auth.discourse.api_username` | Discourse username |
+
+> **Note:** Environment variables can only override service entries that **already exist** in the config file. They cannot introduce brand-new services.
+
+#### Local development: .env file
+
+Create a `.env` file in the project root and cora will load it automatically at startup. Existing system environment variables are never overwritten by `.env`. The `.env` file is for local development only — **do not commit it**.
+
+```bash
+cp .env.example .env
+# Edit .env with your local values
+```
+
+`.env` example:
+
+```bash
+CORA_SERVICES_FORUM_BASE_URL=http://localhost:3000
+CORA_SERVICES_FORUM_AUTH_DISCOURSE_API_KEY=dev-api-key
+CORA_SERVICES_FORUM_AUTH_DISCOURSE_API_USERNAME=system
+```
+
 ### Spec Loading Behavior
 
 | Priority | Condition | Behavior |
@@ -242,7 +275,8 @@ cora/
 ├── spec/                             # Architecture design documents
 ├── Makefile
 ├── Dockerfile
-└── config.example.yaml
+├── config.example.yaml
+└── .env.example                      # Local dev environment variable template
 ```
 
 ## Adding a New Service

@@ -65,6 +65,8 @@ driven by OpenAPI specs published by each backend service.`,
 
 	// ── Built-in commands ─────────────────────────────────────────────────────
 	root.AddCommand(buildSpecCmd(reg))
+	root.AddCommand(buildServicesCmd(reg))
+	root.AddCommand(buildEnvCmd())
 
 	return root.Execute()
 }
@@ -123,7 +125,7 @@ func injectServiceCommands(
 // firstNonFlag returns the first element of args that is not a flag (i.e. does
 // not start with "-") and is not a known built-in command name.
 func firstNonFlag(args []string) string {
-	builtins := map[string]bool{"spec": true, "auth": true, "config": true, "help": true}
+	builtins := map[string]bool{"spec": true, "services": true, "env": true, "auth": true, "config": true, "help": true}
 	for _, a := range args {
 		if strings.HasPrefix(a, "-") {
 			continue

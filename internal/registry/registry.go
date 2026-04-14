@@ -18,6 +18,10 @@ type Entry struct {
 	Name string
 	// Aliases are optional alternative names, e.g. ["discourse"].
 	Aliases []string
+	// BaseURL is the API root address from the config.
+	BaseURL string
+	// SpecURL is the OpenAPI spec source from the config.
+	SpecURL string
 	loader  *spec.Loader
 }
 
@@ -46,8 +50,10 @@ func New(cfg *config.Config) *Registry {
 			continue
 		}
 		entry := &Entry{
-			Name:   name,
-			loader: spec.NewLoader(name, svc.SpecURL, cacheDir, ttl),
+			Name:    name,
+			BaseURL: svc.BaseURL,
+			SpecURL: svc.SpecURL,
+			loader:  spec.NewLoader(name, svc.SpecURL, cacheDir, ttl),
 		}
 		r.entries[name] = entry
 	}
@@ -85,9 +91,24 @@ func (r *Registry) Names() []string {
 	return names
 }
 
+// Entries returns all registered entries.
+func (r *Registry) Entries() []*Entry {
+	entries := make([]*Entry, 0, len(r.entries))
+	for _, e := range r.entries {
+		entries = append(entries, e)
+	}
+	return entries
+}
+
 // LoadSpec fetches (or returns cached) OpenAPI spec for the entry.
 func (e *Entry) LoadSpec(ctx context.Context) (*openapi3.T, error) {
 	return e.loader.Load(ctx)
+}
+
+// LoadCached reads the spec from the local cache only — no network call.
+// Returns (nil, zero, nil) when the service has not been cached yet.
+func (e *Entry) LoadCached() (*openapi3.T, time.Time, error) {
+	return e.loader.LoadCached()
 }
 
 // InvalidateCache removes the cached spec so it is re-fetched on next use.

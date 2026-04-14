@@ -68,6 +68,23 @@ func (l *Loader) Load(ctx context.Context) (*openapi3.T, error) {
 	return nil, errs.NewSpecError(l.SpecURL, fetchErr)
 }
 
+// LoadCached reads the spec from the local cache file only — no network call is
+// made. Returns (nil, zero, nil) when no cache file exists yet.
+func (l *Loader) LoadCached() (*openapi3.T, time.Time, error) {
+	entry, err := readCache(l.CacheFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, time.Time{}, nil
+		}
+		return nil, time.Time{}, err
+	}
+	doc, err := parseSpec(entry.RawSpec)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	return doc, entry.FetchedAt, nil
+}
+
 // Invalidate removes the local cache file, forcing a fresh fetch on next Load.
 func (l *Loader) Invalidate() error {
 	err := os.Remove(l.CacheFile)

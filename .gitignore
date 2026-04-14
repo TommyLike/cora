@@ -1,2 +1,8 @@
 .idea
 bin/
+cora
+
+# Local dev environment — never commit real credentials
+.env
+coverage.out
+coverage.html

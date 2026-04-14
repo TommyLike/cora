@@ -1,17 +1,20 @@
-BINARY     := cora
+BINARY     := bin/cora
 CMD        := ./cmd/cora
 VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS    := -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)
+ARGS       := services list
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 .PHONY: build
 build:
+	@mkdir -p $(dir $(BINARY))
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(CMD)
 
 .PHONY: build-prod
 build-prod:
+	@mkdir -p $(dir $(BINARY))
 	CGO_ENABLED=0 go build -ldflags "-s -w $(LDFLAGS)" -o $(BINARY) $(CMD)
 
 .PHONY: install
@@ -20,7 +23,7 @@ install:
 
 .PHONY: clean
 clean:
-	rm -f $(BINARY)
+	rm -rf bin/
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 
@@ -79,7 +82,7 @@ docker-build:
 .PHONY: docker-run
 docker-run:
 	docker run --rm \
-		-v ~/.config/cora:/root/.config/cora:ro \
+		-v ./config.example.yaml:/root/.config/cora/config.yaml:ro \
 		$(IMAGE):latest $(ARGS)
 
 # ── Help ──────────────────────────────────────────────────────────────────────

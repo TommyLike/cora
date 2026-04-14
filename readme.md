@@ -1,8 +1,10 @@
 # Cora
-English Version: ![readme_en.md](readme_en.md)
+English Version: [readme_en.md](readme_en.md)
 
 **Cora**（Community Collaboration）是统一的开源社区服务命令行工具。通过单一二进制文件访问论坛、邮件列表、会议、Issue 追踪等社区服务，命令由各后端服务发布的 OpenAPI Spec 动态驱动生成。
+
 ![Cora](assets/img/cora.png)
+
 ## 项目简介
 
 `cora` 面向每天需要与多个社区服务交互的开源开发者。无需在各种工具和 Web 页面之间来回切换，所有服务统一使用 `cora <服务> <资源> <操作>` 的命令结构。
@@ -131,6 +133,39 @@ spec_cache:
   dir: ~/.config/cora/cache     # 缓存存储目录
 ```
 
+### 环境变量
+
+所有配置项均可通过 `CORA_` 前缀的环境变量覆盖，优先级高于配置文件。命名规则：将配置文件中的层级路径以 `_` 连接并大写，再加 `CORA_` 前缀。
+
+| 环境变量 | 对应配置项 | 说明 |
+|----------|-----------|------|
+| `CORA_CONFIG` | — | 覆盖配置文件路径 |
+| `CORA_SPEC_CACHE_TTL` | `spec_cache.ttl` | 缓存有效期（如 `12h`） |
+| `CORA_SPEC_CACHE_DIR` | `spec_cache.dir` | 缓存目录路径 |
+| `CORA_SERVICES_<NAME>_BASE_URL` | `services.<name>.base_url` | 覆盖指定服务的 API 根地址 |
+| `CORA_SERVICES_<NAME>_SPEC_URL` | `services.<name>.spec_url` | 覆盖指定服务的 Spec 地址 |
+| `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_KEY` | `services.<name>.auth.discourse.api_key` | Discourse API Key |
+| `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_USERNAME` | `services.<name>.auth.discourse.api_username` | Discourse 用户名 |
+
+> **注意**：环境变量只能覆盖配置文件中**已存在**的服务条目，无法通过环境变量新增服务。
+
+#### 本地开发：使用 .env 文件
+
+在项目根目录创建 `.env` 文件，cora 启动时会自动加载其中的变量（已存在的系统环境变量不会被覆盖）。`.env` 文件仅供本地开发使用，**不要提交到版本库**。
+
+```bash
+cp .env.example .env
+# 编辑 .env，填入本地开发的实际值
+```
+
+`.env` 示例：
+
+```bash
+CORA_SERVICES_FORUM_BASE_URL=http://localhost:3000
+CORA_SERVICES_FORUM_AUTH_DISCOURSE_API_KEY=dev-api-key
+CORA_SERVICES_FORUM_AUTH_DISCOURSE_API_USERNAME=system
+```
+
 ### Spec 加载策略
 
 | 优先级 | 条件 | 行为 |
@@ -241,7 +276,8 @@ cora/
 ├── spec/                             # 架构设计文档
 ├── Makefile
 ├── Dockerfile
-└── config.example.yaml
+├── config.example.yaml
+└── .env.example                      # 本地开发环境变量示例
 ```
 
 ## 接入新服务
