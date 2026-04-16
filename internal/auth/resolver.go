@@ -6,13 +6,15 @@ import (
 	"github.com/cncf/cora/internal/config"
 )
 
-// InjectHeaders adds authentication headers to an outgoing request based on
+// InjectAuth adds authentication credentials to an outgoing request based on
 // the service's configured auth provider.
 //
-// Discourse style: injects Api-Key and Api-Username headers unconditionally
-// when credentials are present. The server ignores them for public endpoints
-// and enforces them for protected ones.
-func InjectHeaders(req *http.Request, svc config.ServiceConfig) {
+// Discourse: injects Api-Key and Api-Username headers.
+// Etherpad:  injects ?apikey= into the request URL's query string.
+//
+// Both providers inject credentials unconditionally when present; the server
+// ignores them for public endpoints and enforces them for protected ones.
+func InjectAuth(req *http.Request, svc config.ServiceConfig) {
 	if d := svc.Auth.Discourse; d != nil {
 		if d.APIKey != "" {
 			req.Header.Set("Api-Key", d.APIKey)
@@ -20,6 +22,12 @@ func InjectHeaders(req *http.Request, svc config.ServiceConfig) {
 		if d.APIUsername != "" {
 			req.Header.Set("Api-Username", d.APIUsername)
 		}
+	}
+
+	if e := svc.Auth.Etherpad; e != nil && e.APIKey != "" {
+		q := req.URL.Query()
+		q.Set("apikey", e.APIKey)
+		req.URL.RawQuery = q.Encode()
 	}
 }
 

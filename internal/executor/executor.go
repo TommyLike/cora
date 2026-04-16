@@ -98,8 +98,8 @@ func (e *Executor) Execute(ctx context.Context, req *Request) error {
 	}
 	httpReq.Header.Set("Accept", "application/json")
 
-	// Inject auth headers (Discourse: Api-Key + Api-Username)
-	auth.InjectHeaders(httpReq, svcCfg)
+	// Inject auth credentials (Discourse: headers; Etherpad: ?apikey= query param)
+	auth.InjectAuth(httpReq, svcCfg)
 
 	// Execute
 	resp, err := e.client.Do(httpReq)
