@@ -45,7 +45,20 @@ func New(cfg *config.Config) *Registry {
 		ttl = 24 * time.Hour
 	}
 
+	// Register built-in services first (may be overridden by user config below).
+	registerBuiltins(r, cfg)
+
+	// Apply user-configured services.
 	for name, svc := range cfg.Services {
+		if existing, ok := r.entries[name]; ok {
+			// Built-in service — allow the user to override the spec source.
+			if svc.SpecURL != "" {
+				existing.SpecURL = svc.SpecURL
+				existing.loader = spec.NewLoader(name, svc.SpecURL, cacheDir, ttl)
+			}
+			continue
+		}
+		// Non-builtin service — requires a spec_url.
 		if svc.SpecURL == "" {
 			continue
 		}
