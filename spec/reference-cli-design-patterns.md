@@ -1,7 +1,7 @@
 # CLI 设计模式参考：googleworkspace/cli 分析
 
 > **来源项目**：https://github.com/googleworkspace/cli
-> **分析目的**：为 community-cli 提炼可借鉴的多服务聚合 CLI 设计模式
+> **分析目的**：为 cora 提炼可借鉴的多服务聚合 CLI 设计模式
 
 ---
 
@@ -20,7 +20,7 @@ gws <service> <resource> [sub-resource] <method> [flags]
 - 单份通用代码服务 15+ 个 Google Workspace 服务
 - 命令树结构由 API 定义驱动，保持与服务端一致
 
-**对 community-cli 的启发**：
+**对 cora 的启发**：
 - 邮件列表、会议、Issue 等服务各自维护服务描述文件（类似 OpenAPI/schema）
 - CLI 读取这些描述文件动态注册命令，新增服务只需添加 schema，无需修改核心逻辑
 - 可用 JSON/YAML schema 描述每个社区服务的资源和操作
@@ -51,7 +51,7 @@ type Helper interface {
 
 **判断标准（Litmus Test）**：若用户通过 `--params '{"key":"value"}'` + 通用输出过滤能完成任务，则不需要 Helper。
 
-**对 community-cli 的启发**：
+**对 cora 的启发**：
 - 默认命令由服务 schema 自动生成；
 - 仅当需要跨服务编排（如：从 Issue 创建会议日程）时，才实现专用 Helper；
 - 避免为每个常用操作都创建快捷命令——保持核心层薄。
@@ -106,7 +106,7 @@ community issue list --repo cncf/xxx --state open
 5. Application Default Credentials / 平台默认认证
 ```
 
-**对 community-cli 的启发**：社区服务可能有多种认证方式（GitHub Token、邮件列表 API Key、Slack Bot Token），统一用分层查找逻辑处理，用户只需设置一次。
+**对 cora 的启发**：社区服务可能有多种认证方式（GitHub Token、邮件列表 API Key、Slack Bot Token），统一用分层查找逻辑处理，用户只需设置一次。
 
 ### 3.2 加密存储 + 平台 Keyring
 
@@ -136,13 +136,13 @@ community auth token --service github
 ```
 默认配置（内置）
     ↓ 覆盖
-系统级配置文件（/etc/community-cli/config.yaml）
+系统级配置文件（/etc/cora/config.yaml）
     ↓ 覆盖
-用户配置文件（~/.config/community-cli/config.yaml）
+用户配置文件（~/.config/cora/config.yaml）
     ↓ 覆盖
-项目配置文件（./.community-cli.yaml）
+项目配置文件（./.cora.yaml）
     ↓ 覆盖
-环境变量（COMMUNITY_CLI_*）
+环境变量（CORA_*）
     ↓ 覆盖
 命令行 flags（最高优先级）
 ```
@@ -150,7 +150,7 @@ community auth token --service github
 ### 4.2 配置目录结构
 
 ```
-~/.config/community-cli/
+~/.config/cora/
 ├── config.yaml          # 全局配置（服务端点、偏好设置）
 ├── credentials.enc      # 加密凭证
 ├── cache/               # 服务 schema 缓存、API 响应缓存
@@ -316,7 +316,7 @@ $ community init
 ? GitHub Token: ****
 ? Mailing list API endpoint: https://lists.example.org/api/v1
 ...
-✓ Configuration saved to ~/.config/community-cli/config.yaml
+✓ Configuration saved to ~/.config/cora/config.yaml
 ```
 
 ---
@@ -361,7 +361,7 @@ community recipe release-announce    # 打 Tag 后自动发邮件列表公告
 
 ---
 
-## 附：community-cli 适用性评估
+## 附：cora 适用性评估
 
 | 模式 | 适用性 | 说明 |
 |------|--------|------|

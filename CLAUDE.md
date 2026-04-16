@@ -1,4 +1,4 @@
-# Community-CLI 开发说明
+# CORA 开发说明
 
 ## Agent开发规范体系
 

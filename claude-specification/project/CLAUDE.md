@@ -1,4 +1,4 @@
-# Community-CLI Claude 规范入口
+# CORA Claude 规范入口
 
 > **使用说明：** 本文件是项目级 CLAUDE.md 模板。
 > 复制到项目根目录后，替换所有 `[占位符]` 内容，删除不适用的章节。
@@ -22,7 +22,7 @@
 
 ## 项目基础信息
 
-- **项目名称：** Community-CLI
+- **项目名称：** CORA
 - **主要语言：** Go
 - **架构风格：** 单体，命令行
 - **所属团队：** opensource-infrastructure

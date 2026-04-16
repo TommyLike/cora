@@ -157,7 +157,7 @@ type SpecLoader interface {
 // CachedRemoteLoader 是唯一实现，适用于所有配置文件中的服务。
 type CachedRemoteLoader struct {
     SpecURL   string        // 完整 URL，如 "https://lists.example.org/openapi.yaml"
-    CacheFile string        // 本地缓存路径，如 "~/.config/community-cli/cache/mail.json"
+    CacheFile string        // 本地缓存路径，如 "~/.config/cora/cache/mail.json"
     TTL       time.Duration // 缓存有效期，默认 24h
 }
 
@@ -204,7 +204,7 @@ type specCache struct {
      │
      ▼
 [2] CachedRemoteLoader.Load()
-     ├── ~/.config/community-cli/cache/<service>.json 存在且 fetched_at 在 24h 内
+     ├── ~/.config/community/cache/<service>.json 存在且 fetched_at 在 24h 内
      │       └── ✓ 直接返回缓存 Spec（无网络请求）
      │
      ├── 缓存不存在 / 已过期
@@ -220,7 +220,7 @@ type specCache struct {
 
 **服务配置文件（用户可扩展）**
 ```yaml
-# ~/.config/community-cli/config.yaml
+# ~/.config/cora/config.yaml
 services:
   mail:
     spec_url: https://lists.example.org/openapi.yaml
@@ -235,12 +235,12 @@ services:
 # 全局 Spec 缓存配置（可选，有默认值）
 spec_cache:
   ttl: 24h            # 缓存有效期，默认 24 小时
-  dir: ~/.config/community-cli/cache  # 缓存目录
+  dir: ~/.config/cora/cache  # 缓存目录
 ```
 
 **缓存文件布局**
 ```
-~/.config/community-cli/
+~/.config/cora/
 └── cache/
     ├── mail.json        # {"fetched_at": "2026-04-12T10:00:00Z", "spec_url": "...", "spec": {...}}
     ├── meeting.json
@@ -317,9 +317,9 @@ paths:
    ↓
 3. OS Keyring（macOS Keychain / Windows Credential Store）
    ↓
-4. 加密凭证文件  ~/.config/community-cli/credentials.enc（AES-256-GCM）
+4. 加密凭证文件  ~/.config/cora/credentials.enc（AES-256-GCM）
    ↓
-5. 明文凭证文件  ~/.config/community-cli/credentials.json（降级）
+5. 明文凭证文件  ~/.config/cora/credentials.json（降级）
 ```
 
 **多种 Auth Provider**
@@ -443,7 +443,7 @@ type Helper interface {
 ## 4. 目录结构
 
 ```
-community-cli/
+cora/
 ├── cmd/
 │   └── community/
 │       └── main.go                  # 入口，初始化 ServiceRegistry，构建 root command
@@ -577,7 +577,7 @@ community-cli/
 
 **状态**：已接受
 
-**决策**：所有 OpenAPI Spec 通过 `CachedRemoteLoader` 统一加载，缓存路径为 `~/.config/community-cli/cache/<service>.json`，默认 TTL **24 小时**。
+**决策**：所有 OpenAPI Spec 通过 `CachedRemoteLoader` 统一加载，缓存路径为 `~/.config/cora/cache/<service>.json`，默认 TTL **24 小时**。
 
 **三段式加载行为（严格优先级）**：
 
@@ -616,7 +616,7 @@ community-cli/
 
 ## 6. 后端服务接入规范
 
-后端服务接入 community-cli 需满足以下要求：
+后端服务接入 cora 需满足以下要求：
 
 ### 6.1 必须项
 
@@ -662,7 +662,7 @@ x-cli-flags-required: [thread-id]
 ### 6.3 服务注册（初期：配置文件驱动）
 
 ```yaml
-# ~/.config/community-cli/config.yaml
+# ~/.config/cora/config.yaml
 services:
   mail:
     url: https://lists.example.org
