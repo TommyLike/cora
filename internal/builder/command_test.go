@@ -136,15 +136,45 @@ func TestVerbName_HTTPMethodFallback(t *testing.T) {
 
 func TestToFlagName(t *testing.T) {
 	tests := []struct{ in, want string }{
+		// snake_case (existing behaviour)
 		{"topic_id", "topic-id"},
 		{"api_key", "api-key"},
 		{"id", "id"},
 		{"already-kebab", "already-kebab"},
+		// camelCase (Etherpad-style parameters)
+		{"padID", "pad-id"},
+		{"groupID", "group-id"},
+		{"validUntil", "valid-until"},
+		{"authorMapper", "author-mapper"},
+		{"startRev", "start-rev"},
 	}
 	for _, tc := range tests {
 		got := toFlagName(tc.in)
 		if got != tc.want {
 			t.Errorf("toFlagName(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// --- verbName with Using{METHOD} suffix ---
+
+func TestVerbName_stripsUsingMethodSuffix(t *testing.T) {
+	tests := []struct {
+		opID   string
+		method string
+		path   string
+		want   string
+	}{
+		{"getTextUsingGET", "GET", "/getText", "get-text"},
+		{"createGroupUsingPOST", "POST", "/createGroup", "create-group"},
+		{"deleteGroupUsingGET", "GET", "/deleteGroup", "delete-group"},
+		{"listAllGroupsUsingGET", "GET", "/listAllGroups", "list-all-groups"},
+		{"createGroupIfNotExistsForUsingGET", "GET", "/createGroupIfNotExistsFor", "create-group-if-not-exists-for"},
+	}
+	for _, tc := range tests {
+		got := verbName(tc.opID, tc.method, tc.path)
+		if got != tc.want {
+			t.Errorf("verbName(%q, %q, %q) = %q, want %q", tc.opID, tc.method, tc.path, got, tc.want)
 		}
 	}
 }

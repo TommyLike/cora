@@ -6,3 +6,4 @@ cora
 .env
 coverage.out
 coverage.html
+config.yaml

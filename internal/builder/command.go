@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
@@ -52,7 +53,19 @@ func Build(
 			if pathItem == nil {
 				continue
 			}
-			for method, op := range pathItem.Operations() {
+			ops := pathItem.Operations()
+			// When a path exposes both GET and POST with the same operationId
+			// base (e.g. Etherpad's "Using{METHOD}" pattern), keep only GET to
+			// avoid duplicate commands. We detect this by checking whether all
+			// HTTP methods on the path share the same stripped operationId.
+			if shouldDeduplicateMethods(ops) {
+				if getOp, ok := ops["get"]; ok && getOp != nil {
+					res := resourceName(getOp, path)
+					resources[res] = append(resources[res], opEntry{path, "get", getOp})
+					continue
+				}
+			}
+			for method, op := range ops {
 				if op == nil {
 					continue
 				}
@@ -125,13 +138,35 @@ var knownVerbPrefixes = []string{
 	"list", "get", "create", "update", "patch", "delete",
 }
 
+// httpMethodSuffixes are the Java/Spring-Boot-style operationId suffixes that
+// Etherpad's OpenAPI spec appends, e.g. "getTextUsingGET".
+var httpMethodSuffixes = []string{
+	"UsingGET", "UsingPOST", "UsingPUT", "UsingPATCH",
+	"UsingDELETE", "UsingHEAD", "UsingOPTIONS",
+}
+
 // verbName determines the CLI verb for an operation.
 //
 // Priority:
-//  1. Known verb prefix in operationId  (listPosts → "list")
-//  2. Action segment: /{id}/lock.json → "lock"
-//  3. HTTP method + path-param presence → "get" / "list" / "create" etc.
+//  1. operationId ending with "Using{METHOD}" (Etherpad/Spring-Boot style):
+//     strip the suffix and convert the remainder to kebab-case.
+//     e.g. "getTextUsingGET" → "get-text"
+//  2. Known verb prefix in a plain operationId (REST style):
+//     e.g. "listPosts" → "list"
+//  3. Action segment after a path param: /{id}/lock.json → "lock"
+//  4. HTTP method + path-param presence → "get" / "list" / "create" etc.
 func verbName(opID, method, path string) string {
+	// Priority 1: strip Java-style Using{METHOD} suffix and use full kebab name.
+	for _, suffix := range httpMethodSuffixes {
+		if strings.HasSuffix(opID, suffix) {
+			base := opID[:len(opID)-len(suffix)]
+			if base != "" {
+				return camelToKebab(base)
+			}
+		}
+	}
+
+	// Priority 2: known verb prefix in plain operationId.
 	lower := strings.ToLower(opID)
 	for _, v := range knownVerbPrefixes {
 		if strings.HasPrefix(lower, v) {
@@ -139,7 +174,7 @@ func verbName(opID, method, path string) string {
 		}
 	}
 
-	// Check for an action segment after a path param: /posts/{id}/lock.json → lock
+	// Priority 3: action segment after a path param: /posts/{id}/lock.json → lock
 	clean := strings.TrimSuffix(path, ".json")
 	segs := strings.Split(strings.Trim(clean, "/"), "/")
 	if len(segs) >= 2 {
@@ -150,7 +185,7 @@ func verbName(opID, method, path string) string {
 		}
 	}
 
-	// Fallback: HTTP method
+	// Priority 4: HTTP method fallback.
 	hasParam := strings.Contains(path, "{")
 	switch strings.ToUpper(method) {
 	case "GET":
@@ -361,9 +396,37 @@ func isDiscourseAuthParam(name string) bool {
 	return name == "Api-Key" || name == "Api-Username"
 }
 
-// toFlagName converts "topic_id" → "topic-id" for CLI flag names.
+// toFlagName converts parameter names to kebab-case CLI flag names.
+// Handles both snake_case ("topic_id" → "topic-id") and camelCase
+// ("padID" → "pad-id", "validUntil" → "valid-until").
 func toFlagName(name string) string {
-	return strings.ReplaceAll(name, "_", "-")
+	return camelToKebab(strings.ReplaceAll(name, "_", "-"))
+}
+
+// camelToKebab converts a camelCase or PascalCase string to kebab-case.
+// Consecutive uppercase sequences (e.g. "ID", "URL") are kept together.
+//
+//	"padID"       → "pad-id"
+//	"validUntil"  → "valid-until"
+//	"already-ok"  → "already-ok"
+func camelToKebab(s string) string {
+	runes := []rune(s)
+	var buf strings.Builder
+	for i, r := range runes {
+		if i > 0 && unicode.IsUpper(r) {
+			prev := runes[i-1]
+			// Insert hyphen when transitioning from lower/digit to upper.
+			if unicode.IsLower(prev) || unicode.IsDigit(prev) {
+				buf.WriteByte('-')
+			} else if i+1 < len(runes) && unicode.IsLower(runes[i+1]) {
+				// Insert hyphen before a new word that starts uppercase
+				// inside an all-caps run: "HTMLParser" → "html-parser".
+				buf.WriteByte('-')
+			}
+		}
+		buf.WriteRune(unicode.ToLower(r))
+	}
+	return buf.String()
 }
 
 // schemaType returns the primary (non-null) JSON Schema type for a SchemaRef.
@@ -405,4 +468,38 @@ func contains(slice []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// shouldDeduplicateMethods returns true when all HTTP methods on a path share
+// the same base operationId after stripping Using{METHOD} suffixes.
+// This identifies Etherpad/Spring-Boot specs where GET and POST expose the
+// same operation under different HTTP verbs (e.g. getTextUsingGET / getTextUsingPOST).
+func shouldDeduplicateMethods(ops map[string]*openapi3.Operation) bool {
+	if len(ops) < 2 {
+		return false
+	}
+	var baseID string
+	for _, op := range ops {
+		if op == nil {
+			continue
+		}
+		stripped := op.OperationID
+		for _, suffix := range httpMethodSuffixes {
+			if strings.HasSuffix(stripped, suffix) {
+				stripped = stripped[:len(stripped)-len(suffix)]
+				break
+			}
+		}
+		if stripped == "" {
+			return false
+		}
+		if baseID == "" {
+			baseID = stripped
+			continue
+		}
+		if baseID != stripped {
+			return false
+		}
+	}
+	return baseID != ""
 }

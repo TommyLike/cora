@@ -45,7 +45,7 @@ func New(cfg *config.Config) *Registry {
 		ttl = 24 * time.Hour
 	}
 
-	// Register built-in services first (may be overridden by user config below).
+	// Register built-in services first (maybe overridden by user config below).
 	registerBuiltins(r, cfg)
 
 	// Apply user-configured services.
