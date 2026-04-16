@@ -45,6 +45,17 @@ type ServiceConfig struct {
 // Only one sub-field should be set per service.
 type AuthConfig struct {
 	Discourse *DiscourseAuth `yaml:"discourse,omitempty" mapstructure:"discourse"`
+	Etherpad  *EtherpadAuth  `yaml:"etherpad,omitempty"  mapstructure:"etherpad"`
+}
+
+// EtherpadAuth holds the API key for the Etherpad REST API.
+// The key is injected as the ?apikey= query parameter on every request.
+//
+// Override via environment variable:
+//
+//	CORA_SERVICES_<NAME>_AUTH_ETHERPAD_API_KEY
+type EtherpadAuth struct {
+	APIKey string `yaml:"api_key" mapstructure:"api_key"`
 }
 
 // DiscourseAuth holds the two header values Discourse requires.
