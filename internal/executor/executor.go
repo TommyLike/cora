@@ -78,16 +78,6 @@ func (e *Executor) Execute(ctx context.Context, req *Request) error {
 		bodyReader = bytes.NewReader(b)
 	}
 
-	// --dry-run: print what would be sent and exit
-	if req.DryRun {
-		fmt.Printf("[dry-run] %s %s\n", req.Method, fullURL)
-		if len(req.Body) > 0 {
-			pretty, _ := json.MarshalIndent(req.Body, "", "  ")
-			fmt.Printf("Body:\n%s\n", pretty)
-		}
-		return nil
-	}
-
 	// Build HTTP request
 	httpReq, err := http.NewRequestWithContext(ctx, req.Method, fullURL, bodyReader)
 	if err != nil {
@@ -98,8 +88,19 @@ func (e *Executor) Execute(ctx context.Context, req *Request) error {
 	}
 	httpReq.Header.Set("Accept", "application/json")
 
-	// Inject auth credentials (Discourse: headers; Etherpad: ?apikey= query param)
+	// Inject auth credentials (Discourse: headers; Etherpad: ?apikey= query param).
+	// Done before dry-run output so the printed URL reflects the actual request.
 	auth.InjectAuth(httpReq, svcCfg)
+
+	// --dry-run: print what would be sent and exit
+	if req.DryRun {
+		fmt.Printf("[dry-run] %s %s\n", req.Method, httpReq.URL.String())
+		if len(req.Body) > 0 {
+			pretty, _ := json.MarshalIndent(req.Body, "", "  ")
+			fmt.Printf("Body:\n%s\n", pretty)
+		}
+		return nil
+	}
 
 	// Execute
 	resp, err := e.client.Do(httpReq)

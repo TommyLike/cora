@@ -56,9 +56,13 @@ func addBuiltin(r *Registry, cfg *config.Config, b builtinDef) {
 		loader:  spec.NewEmbeddedLoader(b.name, b.specData, b.cacheDir, b.ttl),
 	}
 
-	// Inject a default ServiceConfig so the executor can find this service
-	// even when the user has not added it to their config file.
-	if _, ok := cfg.Services[b.name]; !ok {
-		cfg.Services[b.name] = config.ServiceConfig{BaseURL: b.defaultURL}
+	// Ensure cfg.Services has the effective base_url so the executor can find
+	// this service. When the user only sets auth (without base_url), backfill
+	// the default.
+	if existing, ok := cfg.Services[b.name]; !ok {
+		cfg.Services[b.name] = config.ServiceConfig{BaseURL: baseURL}
+	} else if existing.BaseURL == "" {
+		existing.BaseURL = baseURL
+		cfg.Services[b.name] = existing
 	}
 }
