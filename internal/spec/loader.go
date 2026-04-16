@@ -24,9 +24,13 @@ import (
 //  3. Fetch fails AND stale cache available  →  return stale + stderr warning
 type Loader struct {
 	// SpecURL is the canonical source: http(s)://... or file://... or bare path.
-	SpecURL   string
-	CacheFile string
-	TTL       time.Duration
+	// Empty when the spec is provided via FallbackData (built-in services).
+	SpecURL string
+	// FallbackData holds embedded spec bytes for built-in services.
+	// Used by fetch() when SpecURL is empty.
+	FallbackData []byte
+	CacheFile    string
+	TTL          time.Duration
 }
 
 // NewLoader builds a Loader for the given service.
@@ -36,6 +40,17 @@ func NewLoader(svcName, specURL, cacheDir string, ttl time.Duration) *Loader {
 		SpecURL:   specURL,
 		CacheFile: filepath.Join(cacheDir, svcName+"_spec.json"),
 		TTL:       ttl,
+	}
+}
+
+// NewEmbeddedLoader builds a Loader whose spec source is the provided bytes
+// (typically embedded via go:embed). The cache is still written and used for
+// performance, but no network call is ever made.
+func NewEmbeddedLoader(svcName string, data []byte, cacheDir string, ttl time.Duration) *Loader {
+	return &Loader{
+		FallbackData: data,
+		CacheFile:    filepath.Join(cacheDir, svcName+"_spec.json"),
+		TTL:          ttl,
 	}
 }
 
@@ -95,8 +110,16 @@ func (l *Loader) Invalidate() error {
 }
 
 // fetch retrieves raw spec bytes from the configured SpecURL.
-// Supports http://, https://, file://, and bare file paths.
+// Supports http://, https://, file://, bare file paths, and embedded data.
 func (l *Loader) fetch(ctx context.Context) ([]byte, error) {
+	// Embedded spec (built-in services with no SpecURL).
+	if l.SpecURL == "" {
+		if l.FallbackData != nil {
+			return l.FallbackData, nil
+		}
+		return nil, fmt.Errorf("no SpecURL and no FallbackData configured")
+	}
+
 	u := l.SpecURL
 
 	// file:// scheme or bare path

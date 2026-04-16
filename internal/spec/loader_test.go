@@ -227,3 +227,50 @@ func TestLoader_Load_writesCacheAfterFetch(t *testing.T) {
 		t.Errorf("cache file not written after fetch: %v", err)
 	}
 }
+
+// --- embedded spec (FallbackData) ---
+
+func TestLoader_NewEmbeddedLoader_returnsSpec(t *testing.T) {
+	dir := t.TempDir()
+	loader := NewEmbeddedLoader("svc", []byte(minimalSpec), dir, 24*time.Hour)
+
+	doc, err := loader.Load(context.Background())
+	if err != nil {
+		t.Fatalf("Load from embedded data: %v", err)
+	}
+	if doc.Info.Title != "Test API" {
+		t.Errorf("Title = %q, want %q", doc.Info.Title, "Test API")
+	}
+}
+
+func TestLoader_NewEmbeddedLoader_writesCacheOnFirstLoad(t *testing.T) {
+	dir := t.TempDir()
+	loader := NewEmbeddedLoader("svc", []byte(minimalSpec), dir, 24*time.Hour)
+
+	if _, err := loader.Load(context.Background()); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, err := os.Stat(loader.CacheFile); err != nil {
+		t.Errorf("cache file not created after first load: %v", err)
+	}
+}
+
+func TestLoader_NewEmbeddedLoader_usesCacheOnSubsequentLoad(t *testing.T) {
+	dir := t.TempDir()
+	loader := NewEmbeddedLoader("svc", []byte(minimalSpec), dir, 24*time.Hour)
+
+	// First load populates cache.
+	if _, err := loader.Load(context.Background()); err != nil {
+		t.Fatalf("first Load: %v", err)
+	}
+
+	// Corrupt FallbackData; second load must still succeed via cache.
+	loader.FallbackData = []byte("not valid json")
+	doc, err := loader.Load(context.Background())
+	if err != nil {
+		t.Fatalf("second Load (expected cache hit): %v", err)
+	}
+	if doc.Info.Title != "Test API" {
+		t.Errorf("Title = %q, want %q", doc.Info.Title, "Test API")
+	}
+}
