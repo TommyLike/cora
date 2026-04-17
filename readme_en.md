@@ -1,7 +1,7 @@
 # Cora
 [中文版本](readme.md)
 
-Cora, Community Collaboration CLI. A unified command-line interface to interact with community services. Access forums, mailing lists, meetings, issue trackers, and more — all from a single binary, driven by OpenAPI specs published by each backend service.
+Cora, Community Collaboration CLI. A unified command-line interface to interact with community services. Access forums, mailing lists, meetings, issue，CICD, and more — all from a single binary, driven by OpenAPI specs published by each backend service.
 
 ![Cora](assets/img/cora.png)
 

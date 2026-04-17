@@ -1,7 +1,7 @@
 # Cora
 [English Version](readme_en.md)
 
-**Cora**（Community Collaboration）是统一的开源社区服务命令行工具。通过单一二进制文件访问论坛、邮件列表、会议、Issue 追踪等社区服务，命令由各后端服务发布的 OpenAPI Spec 动态驱动生成。
+**Cora**（Community Collaboration）是统一的开源社区服务命令行工具。通过单一二进制文件访问论坛、邮件列表、会议、Issue CICD等社区服务，命令由各后端服务发布的 OpenAPI Spec 动态驱动生成。
 
 ![Cora](assets/img/cora.png)
 
