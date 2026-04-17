@@ -23,6 +23,7 @@ import (
 	"github.com/cncf/cora/internal/auth"
 	"github.com/cncf/cora/internal/config"
 	"github.com/cncf/cora/internal/executor"
+	"github.com/cncf/cora/internal/view"
 )
 
 // Build returns a *cobra.Command for the given service, populated with one
@@ -32,6 +33,7 @@ func Build(
 	spec *openapi3.T,
 	cfg *config.Config,
 	exec *executor.Executor,
+	viewReg *view.Registry,
 ) *cobra.Command {
 	title := ""
 	if spec.Info != nil {
@@ -134,7 +136,7 @@ func Build(
 			}
 			verbSeen[verb] = true
 
-			verbCmd := buildLeaf(svcName, e.path, e.method, verb, e.op, exec)
+			verbCmd := buildLeaf(svcName, res, e.path, e.method, verb, e.op, exec, viewReg)
 			resCmd.AddCommand(verbCmd)
 		}
 
@@ -354,9 +356,10 @@ type bodyRecord struct {
 
 // buildLeaf creates the innermost cobra.Command for a single API operation.
 func buildLeaf(
-	svcName, pathTpl, method, verb string,
+	svcName, resource, pathTpl, method, verb string,
 	op *openapi3.Operation,
 	exec *executor.Executor,
+	viewReg *view.Registry,
 ) *cobra.Command {
 	desc := op.Summary
 	if op.Description != "" {
@@ -526,6 +529,9 @@ func buildLeaf(
 			}
 		}
 
+		// Look up view config; nil means generic fallback rendering.
+		viewCfg := viewReg.Lookup(svcName, resource, verb)
+
 		return exec.Execute(context.Background(), &executor.Request{
 			ServiceName:  svcName,
 			PathTemplate: pathTpl,
@@ -535,6 +541,7 @@ func buildLeaf(
 			Body:         body,
 			Format:       format,
 			DryRun:       dryRun,
+			ViewConfig:   viewCfg,
 		})
 	}
 

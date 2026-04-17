@@ -4,30 +4,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"gopkg.in/yaml.v3"
+
+	"github.com/cncf/cora/internal/view"
 )
 
 // Print renders raw JSON response bytes in the requested format.
-// Supported formats: "table" (default), "json".
-func Print(data []byte, format string) error {
+//
+//   - "json"        → pretty-print full JSON, ignoring viewCfg
+//   - "yaml"        → convert to YAML, ignoring viewCfg
+//   - "table" / ""  → apply viewCfg if non-nil; generic fallback otherwise
+func Print(data []byte, format string, viewCfg *view.ViewConfig) error {
 	switch strings.ToLower(format) {
 	case "json":
 		return printJSON(data)
-	case "table", "":
+	case "yaml":
+		return printYAML(data)
+	default: // "table" or empty
+		if viewCfg != nil {
+			return printView(data, viewCfg)
+		}
 		return printTable(data)
-	default:
-		return printJSON(data)
 	}
 }
 
-// --- JSON ---
+// ── JSON ──────────────────────────────────────────────────────────────────────
 
 func printJSON(data []byte) error {
 	var v interface{}
 	if err := json.Unmarshal(data, &v); err != nil {
-		// Not valid JSON; print raw.
 		fmt.Println(string(data))
 		return nil
 	}
@@ -39,7 +48,103 @@ func printJSON(data []byte) error {
 	return nil
 }
 
-// --- Table ---
+// ── YAML ──────────────────────────────────────────────────────────────────────
+
+func printYAML(data []byte) error {
+	// JSON → interface{} → YAML preserves the full structure.
+	var v interface{}
+	if err := json.Unmarshal(data, &v); err != nil {
+		fmt.Println(string(data))
+		return nil
+	}
+	out, err := yaml.Marshal(v)
+	if err != nil {
+		return err
+	}
+	fmt.Print(string(out))
+	return nil
+}
+
+// ── View-aware rendering ──────────────────────────────────────────────────────
+
+func printView(data []byte, cfg *view.ViewConfig) error {
+	items, obj := view.DetectItems(data, cfg)
+
+	if items != nil {
+		renderListTable(items, cfg.Columns)
+		return nil
+	}
+	if obj != nil {
+		renderKVTable(obj, cfg.Columns)
+		return nil
+	}
+	// Fallback: print raw JSON.
+	return printJSON(data)
+}
+
+// renderKVTable renders a single object as a two-column key/value table.
+// Each ViewColumn becomes one row: left = label, right = formatted value.
+func renderKVTable(obj map[string]interface{}, cols []view.ViewColumn) {
+	t := tablewriter.NewWriter(os.Stdout)
+	t.SetHeader([]string{"Field", "Value"})
+	t.SetBorder(true)
+	t.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	t.SetAlignment(tablewriter.ALIGN_LEFT)
+	t.SetAutoWrapText(true)
+	t.SetColWidth(80)
+
+	for _, col := range cols {
+		val := view.ExtractField(obj, col.Field)
+		rendered := view.FormatValue(val, col)
+		label := view.LabelFor(col)
+		t.Append([]string{label, sanitize(rendered, col.Format)})
+	}
+	t.Render()
+}
+
+// renderListTable renders a slice of objects as a horizontal table,
+// one ViewColumn per table column.
+func renderListTable(items []map[string]interface{}, cols []view.ViewColumn) {
+	if len(items) == 0 {
+		fmt.Println("(no results)")
+		return
+	}
+
+	headers := make([]string, len(cols))
+	for i, col := range cols {
+		headers[i] = view.LabelFor(col)
+	}
+
+	t := tablewriter.NewWriter(os.Stdout)
+	t.SetHeader(headers)
+	t.SetBorder(false)
+	t.SetAutoWrapText(false)
+	t.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	t.SetAlignment(tablewriter.ALIGN_LEFT)
+
+	// Apply fixed column widths where specified.
+	for i, col := range cols {
+		if col.Width > 0 {
+			t.SetColMinWidth(i, col.Width)
+		}
+	}
+
+	for _, item := range items {
+		row := make([]string, len(cols))
+		for i, col := range cols {
+			val := view.ExtractField(item, col.Field)
+			// In list mode, always collapse multiline to a single line.
+			rendered := view.FormatValue(val, col)
+			rendered = strings.ReplaceAll(rendered, "\n", " ")
+			rendered = strings.ReplaceAll(rendered, "\r", "")
+			row[i] = sanitize(rendered, view.FormatText)
+		}
+		t.Append(row)
+	}
+	t.Render()
+}
+
+// ── Generic fallback (no ViewConfig) ─────────────────────────────────────────
 
 func printTable(data []byte) error {
 	var v interface{}
@@ -49,29 +154,23 @@ func printTable(data []byte) error {
 	}
 
 	items := extractItems(v)
-	switch {
-	case len(items) > 0:
+	if len(items) > 0 {
 		return printListTable(items)
-	default:
-		if obj, ok := v.(map[string]interface{}); ok {
-			printKVTable(obj)
-			return nil
-		}
-		return printJSON(data)
 	}
+	if obj, ok := v.(map[string]interface{}); ok {
+		printKVTable(obj)
+		return nil
+	}
+	return printJSON(data)
 }
 
-// extractItems finds the primary list payload inside a JSON response.
-// It handles both top-level arrays and the common "{ items: [...] }" envelope.
+// extractItems finds the primary list payload in a JSON response.
 func extractItems(v interface{}) []map[string]interface{} {
 	if arr, ok := v.([]interface{}); ok {
 		return toObjectSlice(arr)
 	}
 	if obj, ok := v.(map[string]interface{}); ok {
-		// Skip meta/pagination fields and look for the first non-empty array.
-		skip := map[string]bool{
-			"meta": true, "pagination": true, "links": true,
-		}
+		skip := map[string]bool{"meta": true, "pagination": true, "links": true}
 		for k, val := range obj {
 			if skip[k] || strings.HasPrefix(k, "_") {
 				continue
@@ -96,15 +195,13 @@ func toObjectSlice(items []interface{}) []map[string]interface{} {
 	return result
 }
 
-// printListTable renders a slice of objects as a columnar table.
+// printListTable renders a generic list using auto-selected headers.
 func printListTable(items []map[string]interface{}) error {
 	if len(items) == 0 {
 		fmt.Println("(no results)")
 		return nil
 	}
-
 	headers := selectHeaders(items, 7)
-
 	t := tablewriter.NewWriter(os.Stdout)
 	t.SetHeader(headers)
 	t.SetBorder(false)
@@ -115,7 +212,7 @@ func printListTable(items []map[string]interface{}) error {
 	for _, item := range items {
 		row := make([]string, len(headers))
 		for i, h := range headers {
-			row[i] = sanitize(stringify(item[h], 60))
+			row[i] = sanitize(stringify(item[h], 60), view.FormatText)
 		}
 		t.Append(row)
 	}
@@ -123,24 +220,32 @@ func printListTable(items []map[string]interface{}) error {
 	return nil
 }
 
-// printKVTable renders a single object as a two-column key/value table.
+// printKVTable renders a single object as a generic two-column key/value table.
 func printKVTable(obj map[string]interface{}) {
 	t := tablewriter.NewWriter(os.Stdout)
 	t.SetHeader([]string{"Field", "Value"})
-	t.SetBorder(false)
+	t.SetBorder(true)
 	t.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	t.SetAlignment(tablewriter.ALIGN_LEFT)
+	t.SetAutoWrapText(true)
+	t.SetColWidth(80)
 
-	for k, v := range obj {
-		t.Append([]string{k, sanitize(stringify(v, 100))})
+	// Sort keys for deterministic output.
+	keys := make([]string, 0, len(obj))
+	for k := range obj {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		t.Append([]string{k, sanitize(stringify(obj[k], 200), view.FormatText)})
 	}
 	t.Render()
 }
 
-// selectHeaders picks up to maxCols column names, favouring common fields.
+// selectHeaders picks up to maxCols column names from the first item.
 func selectHeaders(items []map[string]interface{}, maxCols int) []string {
-	preferred := []string{"id", "username", "topic_id", "topic_slug", "raw", "created_at", "updated_at"}
-
+	preferred := []string{"id", "number", "name", "title", "username", "state", "created_at", "updated_at"}
 	seen := map[string]bool{}
 	var headers []string
 
@@ -153,7 +258,6 @@ func selectHeaders(items []map[string]interface{}, maxCols int) []string {
 			seen[pref] = true
 		}
 	}
-
 	for k := range items[0] {
 		if len(headers) >= maxCols {
 			break
@@ -178,11 +282,18 @@ func stringify(v interface{}, maxLen int) string {
 }
 
 // sanitize strips ASCII control characters to prevent terminal injection.
-func sanitize(s string) string {
+// In multiline mode, newlines are preserved.
+func sanitize(s string, format view.ColumnFormat) string {
 	var b strings.Builder
 	for _, r := range s {
-		if r >= 0x20 || r == '\t' || r == '\n' {
-			b.WriteRune(r)
+		if format == view.FormatMultiline {
+			if r >= 0x20 || r == '\t' || r == '\n' {
+				b.WriteRune(r)
+			}
+		} else {
+			if r >= 0x20 || r == '\t' {
+				b.WriteRune(r)
+			}
 		}
 	}
 	return b.String()

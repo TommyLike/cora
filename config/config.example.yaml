@@ -46,3 +46,5 @@ services:
 spec_cache:
   ttl: 24h                          # re-fetch after 24 hours
   dir: ~/.config/cora/cache         # where to store cached specs
+
+views_file: ~/.config/cora/views.yaml

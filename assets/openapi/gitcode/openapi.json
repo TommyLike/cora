@@ -39104,7 +39104,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResponseEntity%3F"
+                  "type": "object",
+                  "properties": {}
                 },
                 "example": {}
               }
@@ -42820,10 +42821,6 @@
             "description": "必需属性列表（仅当type为object时使用）"
           }
         }
-      },
-      "ResponseEntity?": {
-        "type": "object",
-        "properties": {}
       },
       "Handler": {
         "type": "object",

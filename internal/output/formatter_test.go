@@ -2,6 +2,8 @@ package output
 
 import (
 	"testing"
+
+	"github.com/cncf/cora/internal/view"
 )
 
 // --- extractItems ---
@@ -79,24 +81,41 @@ func TestExtractItems_emptyArray_returnsNil(t *testing.T) {
 
 func TestSanitize_removesControlCharacters(t *testing.T) {
 	input := "hello\x01\x1bworld"
-	got := sanitize(input)
+	got := sanitize(input, view.FormatText)
 	want := "helloworld"
 	if got != want {
 		t.Errorf("sanitize(%q) = %q, want %q", input, got, want)
 	}
 }
 
-func TestSanitize_keepsTabAndNewline(t *testing.T) {
-	input := "line1\nline2\ttab"
-	got := sanitize(input)
+func TestSanitize_keepsTabInTextMode(t *testing.T) {
+	input := "line1\ttab"
+	got := sanitize(input, view.FormatText)
 	if got != input {
-		t.Errorf("sanitize should preserve \\t and \\n, got %q", got)
+		t.Errorf("sanitize should preserve \\t in text mode, got %q", got)
+	}
+}
+
+func TestSanitize_stripsNewlineInTextMode(t *testing.T) {
+	input := "line1\nline2"
+	got := sanitize(input, view.FormatText)
+	// newline is a control char < 0x20, so stripped in text mode
+	if got != "line1line2" {
+		t.Errorf("sanitize text mode should strip newlines, got %q", got)
+	}
+}
+
+func TestSanitize_keepsNewlineInMultilineMode(t *testing.T) {
+	input := "line1\nline2"
+	got := sanitize(input, view.FormatMultiline)
+	if got != input {
+		t.Errorf("sanitize multiline mode should preserve newlines, got %q", got)
 	}
 }
 
 func TestSanitize_plainString_unchanged(t *testing.T) {
 	input := "hello world 123 !@#"
-	if got := sanitize(input); got != input {
+	if got := sanitize(input, view.FormatText); got != input {
 		t.Errorf("expected unchanged, got %q", got)
 	}
 }
@@ -129,29 +148,57 @@ func TestStringify_shortString_unchanged(t *testing.T) {
 
 func TestPrint_validJSON_noError(t *testing.T) {
 	data := []byte(`{"id":1,"title":"hello"}`)
-	if err := Print(data, "json"); err != nil {
+	if err := Print(data, "json", nil); err != nil {
 		t.Errorf("Print json: %v", err)
 	}
 }
 
 func TestPrint_invalidJSON_noError(t *testing.T) {
-	// Non-JSON content should be printed raw without returning an error.
 	data := []byte(`not json at all`)
-	if err := Print(data, "json"); err != nil {
+	if err := Print(data, "json", nil); err != nil {
 		t.Errorf("Print with invalid JSON should not return error, got: %v", err)
 	}
 }
 
 func TestPrint_tableFormat_noError(t *testing.T) {
 	data := []byte(`[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]`)
-	if err := Print(data, "table"); err != nil {
+	if err := Print(data, "table", nil); err != nil {
 		t.Errorf("Print table: %v", err)
 	}
 }
 
-func TestPrint_unknownFormat_fallsBackToJSON(t *testing.T) {
-	data := []byte(`{"key":"val"}`)
-	if err := Print(data, "yaml"); err != nil {
-		t.Errorf("Print unknown format: %v", err)
+func TestPrint_yamlFormat_noError(t *testing.T) {
+	data := []byte(`{"key":"val","num":42}`)
+	if err := Print(data, "yaml", nil); err != nil {
+		t.Errorf("Print yaml: %v", err)
+	}
+}
+
+func TestPrint_withViewConfig_object(t *testing.T) {
+	data := []byte(`{"number":1367,"title":"Test issue","state":"open","user":{"login":"alice"}}`)
+	cfg := &view.ViewConfig{
+		Columns: []view.ViewColumn{
+			{Field: "number", Label: "No."},
+			{Field: "title", Label: "Title"},
+			{Field: "state", Label: "State"},
+			{Field: "user.login", Label: "Author"},
+		},
+	}
+	if err := Print(data, "table", cfg); err != nil {
+		t.Errorf("Print with ViewConfig: %v", err)
+	}
+}
+
+func TestPrint_withViewConfig_list(t *testing.T) {
+	data := []byte(`[{"number":1,"title":"First","state":"open"},{"number":2,"title":"Second","state":"closed"}]`)
+	cfg := &view.ViewConfig{
+		Columns: []view.ViewColumn{
+			{Field: "number", Label: "No.", Width: 4},
+			{Field: "title", Label: "Title", Truncate: 30},
+			{Field: "state", Label: "State"},
+		},
+	}
+	if err := Print(data, "table", cfg); err != nil {
+		t.Errorf("Print list with ViewConfig: %v", err)
 	}
 }

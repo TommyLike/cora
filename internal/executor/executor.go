@@ -15,6 +15,7 @@ import (
 	"github.com/cncf/cora/internal/config"
 	"github.com/cncf/cora/internal/log"
 	"github.com/cncf/cora/internal/output"
+	"github.com/cncf/cora/internal/view"
 	"github.com/cncf/cora/pkg/errs"
 )
 
@@ -26,8 +27,9 @@ type Request struct {
 	PathParams   map[string]string // {id} → "123"
 	QueryParams  map[string]string
 	Body         map[string]interface{}
-	Format       string // "table" | "json"
+	Format       string            // "table" | "json" | "yaml"
 	DryRun       bool
+	ViewConfig   *view.ViewConfig  // nil → generic fallback rendering
 }
 
 // Executor executes API requests against configured backend services.
@@ -117,6 +119,12 @@ func (e *Executor) Execute(ctx context.Context, req *Request) error {
 	start := time.Now()
 	resp, err := e.client.Do(httpReq)
 	if err != nil {
+		// http.Client embeds the raw URL (including credentials) in *url.Error.
+		// Mask sensitive query parameters before surfacing the error to the user.
+		if urlErr, ok := err.(*url.Error); ok {
+			masked := fmt.Sprintf("%s %q: %v", urlErr.Op, log.MaskURL(urlErr.URL), urlErr.Err)
+			return errs.NewAPIError("request failed: "+masked, nil)
+		}
 		return errs.NewAPIError("request failed", err)
 	}
 	defer resp.Body.Close()
@@ -149,7 +157,7 @@ func (e *Executor) Execute(ctx context.Context, req *Request) error {
 	if format == "" {
 		format = "table"
 	}
-	return output.Print(respBytes, format)
+	return output.Print(respBytes, format, req.ViewConfig)
 }
 
 func truncate(s string, n int) string {

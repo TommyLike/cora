@@ -12,12 +12,13 @@ import (
 	"github.com/cncf/cora/internal/executor"
 	"github.com/cncf/cora/internal/log"
 	"github.com/cncf/cora/internal/registry"
+	"github.com/cncf/cora/internal/view"
 	"github.com/cncf/cora/pkg/errs"
 )
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "[error]", err)
+		fmt.Fprintln(os.Stderr, "[ERROR]", err)
 		if e, ok := err.(*errs.CLIError); ok && e.Hint != "" {
 			fmt.Fprintln(os.Stderr, "→", e.Hint)
 		}
@@ -41,6 +42,17 @@ func run() error {
 	// ── Core objects ──────────────────────────────────────────────────────────
 	reg := registry.New(cfg)
 	exec := executor.New(cfg)
+	viewResult := view.LoadRegistry(cfg.ViewsFile)
+	viewReg := viewResult.Registry
+	if viewResult.ResolvedPath != "" {
+		if viewResult.Loaded {
+			log.Info("views loaded from %s", viewResult.ResolvedPath)
+		} else if viewResult.Err != nil {
+			log.Warn("views file %s could not be loaded: %v", viewResult.ResolvedPath, viewResult.Err)
+		} else {
+			log.Debug("views file not found at %s, using built-in views only", viewResult.ResolvedPath)
+		}
+	}
 
 	// ── Root command ──────────────────────────────────────────────────────────
 	root := &cobra.Command{
@@ -54,7 +66,7 @@ driven by OpenAPI specs published by each backend service.`,
 	}
 
 	// Global persistent flags available to every sub-command.
-	root.PersistentFlags().String("format", "table", "output format: table|json")
+	root.PersistentFlags().String("format", "table", "output format: table|json|yaml")
 	root.PersistentFlags().Bool("dry-run", false, "print the HTTP request without sending it")
 	root.PersistentFlags().Bool("refresh-spec", false, "bypass cache and re-fetch the service spec")
 	root.PersistentFlags().Bool("verbose", false, "enable verbose output for debugging (INFO + DEBUG logs)")
@@ -66,7 +78,7 @@ driven by OpenAPI specs published by each backend service.`,
 	//          inject the derived Cobra sub-tree BEFORE root.Execute() parses.
 	//
 	// This means --help, shell completion, and --dry-run all see the full tree.
-	if err := injectServiceCommands(root, reg, cfg, exec); err != nil {
+	if err := injectServiceCommands(root, reg, cfg, exec, viewReg); err != nil {
 		// Non-fatal: print a warning so "cora --help" still works.
 		log.Warn("%v", err)
 	}
@@ -88,6 +100,7 @@ func injectServiceCommands(
 	reg *registry.Registry,
 	cfg *config.Config,
 	exec *executor.Executor,
+	viewReg *view.Registry,
 ) error {
 	// Find the first non-flag argument – that is the service name.
 	svcName := firstNonFlag(os.Args[1:])
@@ -126,7 +139,7 @@ func injectServiceCommands(
 		return fmt.Errorf("load spec for %q: %w", svcName, err)
 	}
 
-	svcCmd := builder.Build(svcName, spec, cfg, exec)
+	svcCmd := builder.Build(svcName, spec, cfg, exec, viewReg)
 	root.AddCommand(svcCmd)
 	return nil
 }

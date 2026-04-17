@@ -1,0 +1,158 @@
+# views.example.yaml — Cora 结果展示定制示例
+#
+# 复制到 ~/.config/cora/views.yaml 并按需修改。
+# 环境变量 CORA_VIEWS 可指定其他路径。
+#
+# 结构：
+#   <service-name>:
+#     <resource>/<verb>:
+#       root_field: ""      # 可选：响应中包含列表的字段名（空=自动探测）
+#       columns:
+#         - field: <dot.path>   # 必填：JSON 字段路径，支持点号嵌套
+#           label: <string>      # 可选：表头（默认自动 title-case）
+#           format: <type>       # 可选：text（默认）| json | date | multiline
+#           truncate: <int>      # 可选：最大字符数，0=不截断
+#           width: <int>         # 可选：固定列宽（仅 list 横向表格）
+#           date_fmt: <string>   # 可选：Go 时间格式，format=date 时有效
+#           indent: <bool>       # 可选：format=json 时缩进展示
+#
+# --format json / --format yaml 会忽略所有 view 定义，输出完整原始响应。
+
+gitcode:
+  issues/get:
+    columns:
+      - field: number
+        label: "No."
+      - field: title
+        label: Title
+        truncate: 80
+      - field: state
+      - field: user.login
+        label: Author
+      - field: assignees
+        label: Assignees
+        format: json
+      - field: labels
+        label: Labels
+        format: json
+      - field: created_at
+        label: Created
+        format: date
+        date_fmt: "2006-01-02"
+      - field: body
+        label: Description
+        format: multiline
+        truncate: 500
+
+  issues/list:
+    columns:
+      - field: number
+        label: "No."
+        width: 6
+      - field: title
+        label: Title
+        truncate: 50
+        width: 52
+      - field: state
+        width: 8
+      - field: user.login
+        label: Author
+        width: 16
+      - field: created_at
+        label: Created
+        format: date
+        width: 12
+
+  pulls/list:
+    columns:
+      - field: number
+        label: "PR"
+        width: 6
+      - field: title
+        truncate: 50
+        width: 52
+      - field: state
+        width: 8
+      - field: user.login
+        label: Author
+        width: 16
+      - field: head.label
+        label: Branch
+        width: 24
+      - field: created_at
+        label: Created
+        format: date
+        width: 12
+
+  repos/get:
+    columns:
+      - field: full_name
+        label: Repo
+      - field: description
+        truncate: 80
+      - field: stargazers_count
+        label: Stars
+      - field: forks_count
+        label: Forks
+      - field: language
+      - field: license.name
+        label: License
+      - field: topics
+        label: Topics
+        format: json
+      - field: created_at
+        label: Created
+        format: date
+
+forum:
+  topics/list:
+    columns:
+      - field: id
+        width: 8
+      - field: title
+        truncate: 60
+        width: 62
+      - field: posts_count
+        label: Posts
+        width: 8
+      - field: reply_count
+        label: Replies
+        width: 8
+      - field: created_at
+        label: Created
+        format: date
+        width: 12
+
+  posts/list:
+    columns:
+      - field: id
+        width: 8
+      - field: username
+        label: Author
+        width: 16
+      - field: cooked
+        label: Content
+        format: multiline
+        truncate: 200
+      - field: created_at
+        label: Created
+        format: date
+        width: 12
+
+# 示例：覆盖内置 view，只显示 3 个字段
+# gitcode:
+#   issues/get:
+#     columns:
+#       - field: number
+#       - field: title
+#       - field: state
+#
+# 示例：自定义一个尚无内置 view 的操作
+# some-service:
+#   things/list:
+#     root_field: items       # API 返回 {"items": [...], "total": 10}
+#     columns:
+#       - field: id
+#       - field: name
+#       - field: created_at
+#         format: date

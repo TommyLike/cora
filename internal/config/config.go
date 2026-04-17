@@ -28,6 +28,10 @@ const (
 type Config struct {
 	Services  map[string]ServiceConfig `yaml:"services"   mapstructure:"services"`
 	SpecCache SpecCacheConfig          `yaml:"spec_cache" mapstructure:"spec_cache"`
+	// ViewsFile is an explicit path to views.yaml.
+	// Overridden by the CORA_VIEWS environment variable.
+	// Defaults to ~/.config/cora/views.yaml when empty.
+	ViewsFile string `yaml:"views_file" mapstructure:"views_file"`
 }
 
 // ServiceConfig holds per-service settings.
