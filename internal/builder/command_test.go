@@ -123,11 +123,83 @@ func TestVerbName_HTTPMethodFallback(t *testing.T) {
 		{"PUT", "/posts/{id}.json", "update"},
 		{"PATCH", "/posts/{id}.json", "update"},
 		{"DELETE", "/posts/{id}.json", "delete"},
+		// GitCode-style paths: mid-path params should not trigger "get" for collections.
+		{"GET", "/api/v5/repos/{owner}/{repo}/issues", "list"},
+		{"GET", "/api/v5/repos/{owner}/{repo}/issues/{number}", "get"},
 	}
 	for _, tc := range tests {
 		got := verbName("", tc.method, tc.path)
 		if got != tc.want {
 			t.Errorf("verbName(method=%q, path=%q) = %q, want %q", tc.method, tc.path, got, tc.want)
+		}
+	}
+}
+
+// --- isPathEncodedOpID ---
+
+func TestIsPathEncodedOpID(t *testing.T) {
+	yes := []string{
+		"get_api_v5_repos_{owner}_{repo}_issues_{number}",
+		"post_api_v5_repos_{owner}_{repo}_issues",
+		"delete_api_v3_users_{id}",
+	}
+	no := []string{
+		"listPosts", "getPost", "createPost",
+		"getTextUsingGET",
+		"",
+		"get_something_without_api_prefix",
+	}
+	for _, opID := range yes {
+		if !isPathEncodedOpID(opID) {
+			t.Errorf("isPathEncodedOpID(%q) should be true", opID)
+		}
+	}
+	for _, opID := range no {
+		if isPathEncodedOpID(opID) {
+			t.Errorf("isPathEncodedOpID(%q) should be false", opID)
+		}
+	}
+}
+
+// --- hasTrailingParam ---
+
+func TestHasTrailingParam(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"/api/v5/repos/{owner}/{repo}/issues/{number}", true},
+		{"/api/v5/repos/{owner}/{repo}/issues", false},
+		{"/posts/{id}.json", true},
+		{"/posts.json", false},
+		{"/api/v5/user/issues", false},
+		{"/api/v5/enterprises/{enterprise}/issues/{number}", true},
+	}
+	for _, tc := range tests {
+		got := hasTrailingParam(tc.path)
+		if got != tc.want {
+			t.Errorf("hasTrailingParam(%q) = %v, want %v", tc.path, got, tc.want)
+		}
+	}
+}
+
+// --- pathContext ---
+
+func TestPathContext(t *testing.T) {
+	tests := []struct {
+		path string
+		want string
+	}{
+		{"/api/v5/repos/{owner}/{repo}/issues/{number}", "repo"},
+		{"/api/v5/enterprises/{enterprise}/issues/{number}", "enterprise"},
+		{"/api/v5/user/issues", "user"},
+		{"/api/v5/orgs/{org}/issues", "org"},
+		{"/posts/{id}.json", "post"},
+	}
+	for _, tc := range tests {
+		got := pathContext(tc.path)
+		if got != tc.want {
+			t.Errorf("pathContext(%q) = %q, want %q", tc.path, got, tc.want)
 		}
 	}
 }
@@ -223,6 +295,51 @@ func TestDerefString(t *testing.T) {
 	bf := false
 	if got := derefString(&bf); got != "" {
 		t.Errorf("*bool(false): got %q, want empty string", got)
+	}
+}
+
+// --- shouldDeduplicateMethods ---
+
+func TestShouldDeduplicateMethods(t *testing.T) {
+	makeOp := func(opID string) *openapi3.Operation {
+		op := openapi3.NewOperation()
+		op.OperationID = opID
+		return op
+	}
+
+	// Etherpad-style: GET and POST share same base id → deduplicate
+	same := map[string]*openapi3.Operation{
+		"get":  makeOp("getTextUsingGET"),
+		"post": makeOp("getTextUsingPOST"),
+	}
+	if !shouldDeduplicateMethods(same) {
+		t.Error("same base id: expected true")
+	}
+
+	// Different base ids → do not deduplicate
+	diff := map[string]*openapi3.Operation{
+		"get":  makeOp("listPostsUsingGET"),
+		"post": makeOp("createPostUsingPOST"),
+	}
+	if shouldDeduplicateMethods(diff) {
+		t.Error("different base ids: expected false")
+	}
+
+	// Single method → do not deduplicate
+	single := map[string]*openapi3.Operation{
+		"get": makeOp("getTextUsingGET"),
+	}
+	if shouldDeduplicateMethods(single) {
+		t.Error("single method: expected false")
+	}
+
+	// No Using{METHOD} suffix → do not deduplicate (plain REST spec)
+	plain := map[string]*openapi3.Operation{
+		"get":  makeOp("listPosts"),
+		"post": makeOp("createPost"),
+	}
+	if shouldDeduplicateMethods(plain) {
+		t.Error("plain operationIds with no suffix: expected false")
 	}
 }
 

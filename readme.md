@@ -31,6 +31,37 @@ cora <服务> <资源> <操作> [参数]
 
 ## 使用示例
 
+### GitCode
+
+```bash
+# 列出仓库列表
+cora gitcode repositories list --owner my-org
+
+# 获取仓库信息
+cora gitcode repositories get --owner my-org --repo my-repo
+
+# 列出 Issue
+cora gitcode issues list --owner my-org --repo my-repo --state open
+
+# 创建 Issue
+cora gitcode issues create --owner my-org --repo my-repo \
+  --title "Bug: xxx" --body "复现步骤..."
+
+# 列出 Pull Request
+cora gitcode pull-requests list --owner my-org --repo my-repo
+
+# 获取提交历史
+cora gitcode commit list --owner my-org --repo my-repo
+
+# 以 JSON 格式输出并通过 jq 过滤
+cora gitcode repositories list --owner my-org --format json | jq '.[].name'
+
+# 预览请求内容（不实际发送）
+cora gitcode issues create --owner my-org --repo my-repo --title "test" --dry-run
+```
+
+### Forum（Discourse）
+
 ```bash
 # 列出论坛最新帖子
 cora forum posts list
@@ -105,10 +136,34 @@ cp config.example.yaml ~/.config/cora/config.yaml
 # 编辑文件，填写实际值
 ```
 
+### 内置服务
+
+以下服务的 OpenAPI Spec 已随二进制一同内置，无需配置 `spec_url`，开箱即用：
+
+| 服务 | 命令名 | 默认 API 地址 | 鉴权方式 |
+|------|--------|--------------|----------|
+| [GitCode](https://gitcode.com) | `gitcode` | `https://api.gitcode.com` | 个人访问令牌（`?access_token=`） |
+| [Etherpad](https://etherpad.org) | `etherpad` | `https://etherpad.openeuler.org/api/1.3.0` | API Key（`?apikey=`） |
+
 ### 配置文件说明
 
 ```yaml
 services:
+  # ── GitCode（内置，无需 spec_url）──
+  gitcode:
+    # base_url 默认为 https://api.gitcode.com，自建实例时覆盖此项。
+    auth:
+      gitcode:
+        access_token: "你的个人访问令牌"   # GitCode 用户设置 → 个人访问令牌
+
+  # ── Etherpad（内置，无需 spec_url）──
+  etherpad:
+    base_url: https://your-etherpad-host/api/1.3.0  # 自建实例时覆盖
+    auth:
+      etherpad:
+        api_key: "你的 Etherpad API Key"
+
+  # ── Forum / Discourse（需要提供 spec_url）──
   forum:
     # spec_url：服务 OpenAPI Spec 的地址或本地路径。
     # 支持：http://、https://、file:// 或裸文件路径。
@@ -144,6 +199,8 @@ spec_cache:
 | `CORA_SPEC_CACHE_DIR` | `spec_cache.dir` | 缓存目录路径 |
 | `CORA_SERVICES_<NAME>_BASE_URL` | `services.<name>.base_url` | 覆盖指定服务的 API 根地址 |
 | `CORA_SERVICES_<NAME>_SPEC_URL` | `services.<name>.spec_url` | 覆盖指定服务的 Spec 地址 |
+| `CORA_SERVICES_GITCODE_AUTH_GITCODE_ACCESS_TOKEN` | `services.gitcode.auth.gitcode.access_token` | GitCode 个人访问令牌 |
+| `CORA_SERVICES_ETHERPAD_AUTH_ETHERPAD_API_KEY` | `services.etherpad.auth.etherpad.api_key` | Etherpad API Key |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_KEY` | `services.<name>.auth.discourse.api_key` | Discourse API Key |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_USERNAME` | `services.<name>.auth.discourse.api_username` | Discourse 用户名 |
 

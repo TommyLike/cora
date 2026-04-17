@@ -46,6 +46,7 @@ type ServiceConfig struct {
 type AuthConfig struct {
 	Discourse *DiscourseAuth `yaml:"discourse,omitempty" mapstructure:"discourse"`
 	Etherpad  *EtherpadAuth  `yaml:"etherpad,omitempty"  mapstructure:"etherpad"`
+	Gitcode   *GitcodeAuth   `yaml:"gitcode,omitempty"   mapstructure:"gitcode"`
 }
 
 // EtherpadAuth holds the API key for the Etherpad REST API.
@@ -56,6 +57,16 @@ type AuthConfig struct {
 //	CORA_SERVICES_<NAME>_AUTH_ETHERPAD_API_KEY
 type EtherpadAuth struct {
 	APIKey string `yaml:"api_key" mapstructure:"api_key"`
+}
+
+// GitcodeAuth holds the personal access token for the GitCode REST API.
+// The token is injected as the ?access_token= query parameter on every request.
+//
+// Override via environment variable:
+//
+//	CORA_SERVICES_<NAME>_AUTH_GITCODE_ACCESS_TOKEN
+type GitcodeAuth struct {
+	AccessToken string `yaml:"access_token" mapstructure:"access_token"`
 }
 
 // DiscourseAuth holds the two header values Discourse requires.

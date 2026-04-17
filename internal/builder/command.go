@@ -13,12 +13,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"unicode"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
 
+	"github.com/cncf/cora/internal/auth"
 	"github.com/cncf/cora/internal/config"
 	"github.com/cncf/cora/internal/executor"
 )
@@ -83,13 +85,51 @@ func Build(
 			Short: fmt.Sprintf("Manage %s", res),
 		}
 
+		// Sort operations to establish a stable priority for verb assignment:
+		//   1. "repo" context first (primary entity type for most APIs).
+		//   2. Within the same context, shallower paths first — a shorter path
+		//      means a more fundamental operation (e.g. /issues/{n} beats
+		//      /issues/comments/{id} for the "get" verb).
+		//   3. Alphabetical by path as a final tiebreaker.
+		// This ensures the primary get/list operations receive the clean verb,
+		// and sub-resource operations receive a disambiguated suffix.
+		sort.Slice(ops, func(i, j int) bool {
+			ci := pathContext(ops[i].path)
+			cj := pathContext(ops[j].path)
+			if ci != cj {
+				if ci == "repo" {
+					return true
+				}
+				if cj == "repo" {
+					return false
+				}
+				return ci < cj
+			}
+			// Same context: prefer shallower paths.
+			di := strings.Count(ops[i].path, "/")
+			dj := strings.Count(ops[j].path, "/")
+			if di != dj {
+				return di < dj
+			}
+			return ops[i].path < ops[j].path
+		})
+
 		// Track verbs to detect conflicts within the same resource.
 		verbSeen := map[string]bool{}
 
 		for _, e := range ops {
 			verb := verbName(e.op.OperationID, e.method, e.path)
 			if verbSeen[verb] {
-				// Disambiguate by appending a path suffix (e.g. "get-replies")
+				// First try: qualify with path context (e.g. "enterprise", "user").
+				ctx := pathContext(e.path)
+				if ctx != "" && ctx != "repo" {
+					verb = verb + "-" + ctx
+				} else {
+					verb = verb + "-" + pathSuffix(e.path)
+				}
+			}
+			// Second try: if still conflicts, append path suffix on top.
+			if verbSeen[verb] {
 				verb = verb + "-" + pathSuffix(e.path)
 			}
 			verbSeen[verb] = true
@@ -151,10 +191,15 @@ var httpMethodSuffixes = []string{
 //  1. operationId ending with "Using{METHOD}" (Etherpad/Spring-Boot style):
 //     strip the suffix and convert the remainder to kebab-case.
 //     e.g. "getTextUsingGET" → "get-text"
-//  2. Known verb prefix in a plain operationId (REST style):
+//  2. Known verb prefix in a plain camelCase operationId (REST style):
 //     e.g. "listPosts" → "list"
+//     Skipped for path-encoded operationIds (GitCode style: get_api_v5_…)
+//     because those are better resolved by the HTTP-method fallback.
 //  3. Action segment after a path param: /{id}/lock.json → "lock"
-//  4. HTTP method + path-param presence → "get" / "list" / "create" etc.
+//  4. HTTP method + trailing-param check → "get" / "list" / "create" etc.
+//     Uses trailing-param detection so /repos/{owner}/{repo}/issues (no
+//     trailing param) yields "list", while /repos/{owner}/{repo}/issues/{n}
+//     (trailing param) yields "get".
 func verbName(opID, method, path string) string {
 	// Priority 1: strip Java-style Using{METHOD} suffix and use full kebab name.
 	for _, suffix := range httpMethodSuffixes {
@@ -167,29 +212,48 @@ func verbName(opID, method, path string) string {
 	}
 
 	// Priority 2: known verb prefix in plain operationId.
-	lower := strings.ToLower(opID)
-	for _, v := range knownVerbPrefixes {
-		if strings.HasPrefix(lower, v) {
-			return v
+	// Skip for path-encoded operationIds (e.g. GitCode's get_api_v5_repos_…)
+	// to avoid all such operations collapsing to the same verb.
+	if !isPathEncodedOpID(opID) {
+		lower := strings.ToLower(opID)
+		for _, v := range knownVerbPrefixes {
+			if strings.HasPrefix(lower, v) {
+				return v
+			}
 		}
 	}
 
-	// Priority 3: action segment after a path param: /posts/{id}/lock.json → lock
+	// Priority 3: action segment after a path param: /posts/{id}/lock.json → "lock"
+	// Only applies to shallow paths (at most 2 non-param segments before the
+	// {param}/action pair). Deep API paths like /api/v5/repos/{owner}/{repo}/issues
+	// have resource names at the end, not actions, and must fall through to Priority 4.
 	clean := strings.TrimSuffix(path, ".json")
 	segs := strings.Split(strings.Trim(clean, "/"), "/")
 	if len(segs) >= 2 {
 		last := segs[len(segs)-1]
 		secondLast := segs[len(segs)-2]
 		if !strings.HasPrefix(last, "{") && strings.HasPrefix(secondLast, "{") {
-			return last // e.g. "replies", "lock"
+			// Count non-param segments that appear before the {param} at secondLast.
+			paramIdx := len(segs) - 2
+			priorNonParam := 0
+			for i := 0; i < paramIdx; i++ {
+				if segs[i] != "" && !strings.HasPrefix(segs[i], "{") {
+					priorNonParam++
+				}
+			}
+			if priorNonParam <= 2 {
+				return last // e.g. "replies", "lock"
+			}
 		}
 	}
 
 	// Priority 4: HTTP method fallback.
-	hasParam := strings.Contains(path, "{")
+	// Check whether the LAST path segment is a template param to correctly
+	// distinguish a collection (/issues → list) from a single-item fetch
+	// (/issues/{number} → get), even when owner/repo params appear mid-path.
 	switch strings.ToUpper(method) {
 	case "GET":
-		if hasParam {
+		if hasTrailingParam(path) {
 			return "get"
 		}
 		return "list"
@@ -201,6 +265,77 @@ func verbName(opID, method, path string) string {
 		return "delete"
 	}
 	return strings.ToLower(method)
+}
+
+// isPathEncodedOpID reports whether operationId encodes the full API path
+// in the pattern used by GitCode: {method}_api_v{N}_{rest}
+// e.g. "get_api_v5_repos_{owner}_{repo}_issues_{number}"
+// These ids should bypass the known-verb-prefix heuristic (Priority 2).
+func isPathEncodedOpID(opID string) bool {
+	lower := strings.ToLower(opID)
+	for _, m := range []string{"get_", "post_", "put_", "patch_", "delete_"} {
+		if strings.HasPrefix(lower, m) {
+			rest := lower[len(m):]
+			// Must be followed by "api_v" + a digit, e.g. "api_v5_"
+			if len(rest) > 6 && strings.HasPrefix(rest, "api_v") &&
+				rest[5] >= '0' && rest[5] <= '9' {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// hasTrailingParam reports whether the last non-empty path segment is a
+// template parameter such as "{id}" or "{number}".
+// Unlike strings.Contains(path, "{"), this correctly treats
+// /repos/{owner}/{repo}/issues as a collection (no trailing param).
+func hasTrailingParam(path string) bool {
+	clean := strings.TrimSuffix(path, ".json")
+	segs := strings.Split(strings.Trim(clean, "/"), "/")
+	for i := len(segs) - 1; i >= 0; i-- {
+		if segs[i] != "" {
+			return strings.HasPrefix(segs[i], "{")
+		}
+	}
+	return false
+}
+
+// pathContext returns a short label for the primary entity type in a path,
+// used to disambiguate commands from the same tag but different API scopes.
+//
+//	/api/v5/repos/{owner}/{repo}/issues/{n}      → "repo"
+//	/api/v5/enterprises/{enterprise}/issues/{n}  → "enterprise"
+//	/api/v5/user/issues                          → "user"
+//	/api/v5/orgs/{org}/issues                    → "org"
+func pathContext(path string) string {
+	segs := strings.Split(strings.Trim(path, "/"), "/")
+	for _, s := range segs {
+		sl := strings.ToLower(s)
+		if sl == "" || sl == "api" || strings.HasPrefix(sl, "{") {
+			continue
+		}
+		// Skip version segments: "v5", "v1", "v3", …
+		if len(sl) >= 2 && sl[0] == 'v' {
+			rest := sl[1:]
+			onlyDigitsOrDot := true
+			for _, c := range rest {
+				if (c < '0' || c > '9') && c != '.' {
+					onlyDigitsOrDot = false
+					break
+				}
+			}
+			if onlyDigitsOrDot {
+				continue
+			}
+		}
+		// Strip trailing 's' to get singular form: "repos"→"repo", "enterprises"→"enterprise"
+		if strings.HasSuffix(sl, "s") && len(sl) > 2 {
+			return sl[:len(sl)-1]
+		}
+		return sl
+	}
+	return ""
 }
 
 // ─── Leaf command builder ─────────────────────────────────────────────────────
@@ -237,6 +372,10 @@ func buildLeaf(
 	var params []paramRecord
 	var bodyFields []bodyRecord
 	dataFlag := new(string)
+	// registeredFlags tracks flag names already registered on this command to
+	// prevent panics when a spec declares the same parameter in both query and
+	// request body (e.g. GitCode's /oauth/token client_secret).
+	registeredFlags := map[string]bool{}
 
 	// ── Path & query params ───────────────────────────────────────────────────
 	for _, ref := range op.Parameters {
@@ -245,8 +384,11 @@ func buildLeaf(
 		}
 		p := ref.Value
 
-		// Skip Discourse auth headers — injected automatically.
+		// Skip auth params that are injected automatically by the executor.
 		if p.In == "header" && isDiscourseAuthParam(p.Name) {
+			continue
+		}
+		if auth.IsGitcodeAuthParam(p.Name) {
 			continue
 		}
 		if p.In != "path" && p.In != "query" {
@@ -254,6 +396,9 @@ func buildLeaf(
 		}
 
 		fn := toFlagName(p.Name)
+		if registeredFlags[fn] {
+			continue
+		}
 		pr := paramRecord{specName: p.Name, flagName: fn, location: p.In}
 
 		switch schemaType(p.Schema) {
@@ -271,6 +416,7 @@ func buildLeaf(
 			cmd.Flags().StringVar(v, fn, "", p.Description)
 		}
 
+		registeredFlags[fn] = true
 		if p.Required {
 			_ = cmd.MarkFlagRequired(fn)
 		}
@@ -299,6 +445,10 @@ func buildLeaf(
 				}
 
 				fn := toFlagName(propName)
+				// Skip if a same-named query/path flag is already registered.
+				if registeredFlags[fn] {
+					continue
+				}
 				desc := propRef.Value.Description
 				isReq := contains(schema.Required, propName)
 
@@ -318,6 +468,7 @@ func buildLeaf(
 					cmd.Flags().StringVar(v, fn, "", desc)
 				}
 
+				registeredFlags[fn] = true
 				if isReq {
 					_ = cmd.MarkFlagRequired(fn)
 				}

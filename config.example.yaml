@@ -2,14 +2,29 @@
 # Copy to ~/.config/cora/config.yaml and fill in your values.
 
 services:
+  # ── GitCode ──────────────────────────────────────────────────────────────────
+  # Built-in service — spec is embedded in the binary (no spec_url needed).
+  # Default base_url: https://api.gitcode.com
+  # Get your personal access token at: https://gitcode.com/-/user_settings/personal_access_tokens
+  gitcode:
+    auth:
+      gitcode:
+        access_token: YOUR_GITCODE_PERSONAL_ACCESS_TOKEN
+
+  # ── Etherpad ─────────────────────────────────────────────────────────────────
+  # Built-in service — spec is embedded in the binary (no spec_url needed).
+  # Default base_url: https://etherpad.openeuler.org/api/1.3.0
+  # Override base_url when pointing at a self-hosted Etherpad instance.
   etherpad:
+    base_url: https://your-etherpad-host/api/1.3.0
     auth:
       etherpad:
         api_key: YOUR_ETHERPAD_API_KEY
-    base_url: https://opengauss-etherpad.test.osinfra.cn/api/1.3.0
+
+  # ── Forum (Discourse) ─────────────────────────────────────────────────────────
+  # spec_url: URL or local path to the service's OpenAPI spec.
+  # Supported: http://, https://, file://, or a bare filesystem path.
   forum:
-    # spec_url: URL or local path to the service's OpenAPI spec.
-    # Supported: http://, https://, file://, or a bare filesystem path.
     spec_url: assets/openapi/forum/openapi.json
 
     # base_url: the actual API root of your Discourse instance.
@@ -20,14 +35,12 @@ services:
         api_key: "YOUR_DISCOURSE_API_KEY"
         api_username: "system"
 
-  # Example: remote service with HTTP spec endpoint
+  # ── Custom service example ────────────────────────────────────────────────────
+  # Any service exposing an OpenAPI 3.0 spec can be added here without
+  # modifying CLI code. The spec is fetched and cached automatically.
   # mail:
   #   spec_url: https://lists.example.org/openapi.yaml
   #   base_url: https://lists.example.org
-  #   auth:
-  #     discourse:          # or another provider if your mail service supports it
-  #       api_key: ""
-  #       api_username: ""
 
 # Global spec cache settings (optional — defaults shown)
 spec_cache:

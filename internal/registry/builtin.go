@@ -11,6 +11,9 @@ import (
 const (
 	etherpadName       = "etherpad"
 	etherpadDefaultURL = "https://etherpad.openeuler.org/api/1.3.0"
+
+	gitcodeName       = "gitcode"
+	gitcodeDefaultURL = "https://api.gitcode.com"
 )
 
 // registerBuiltins adds built-in service entries to the registry and ensures
@@ -29,6 +32,14 @@ func registerBuiltins(r *Registry, cfg *config.Config) {
 		name:       etherpadName,
 		defaultURL: etherpadDefaultURL,
 		specData:   assets.EtherpadSpec,
+		cacheDir:   cacheDir,
+		ttl:        ttl,
+	})
+
+	addBuiltin(r, cfg, builtinDef{
+		name:       gitcodeName,
+		defaultURL: gitcodeDefaultURL,
+		specData:   assets.GitcodeSpec,
 		cacheDir:   cacheDir,
 		ttl:        ttl,
 	})

@@ -30,6 +30,37 @@ cora <service> <resource> <verb> [flags]
 
 ## Usage Examples
 
+### GitCode
+
+```bash
+# List repositories in an organization
+cora gitcode repositories list --owner my-org
+
+# Get repository details
+cora gitcode repositories get --owner my-org --repo my-repo
+
+# List open issues
+cora gitcode issues list --owner my-org --repo my-repo --state open
+
+# Create an issue
+cora gitcode issues create --owner my-org --repo my-repo \
+  --title "Bug: something is broken" --body "Steps to reproduce..."
+
+# List pull requests
+cora gitcode pull-requests list --owner my-org --repo my-repo
+
+# View commit history
+cora gitcode commit list --owner my-org --repo my-repo
+
+# Output as JSON and pipe to jq
+cora gitcode repositories list --owner my-org --format json | jq '.[].name'
+
+# Preview the HTTP request without sending it
+cora gitcode issues create --owner my-org --repo my-repo --title "test" --dry-run
+```
+
+### Forum (Discourse)
+
 ```bash
 # List recent posts in the forum
 cora forum posts list
@@ -104,10 +135,35 @@ cp config.example.yaml ~/.config/cora/config.yaml
 # Edit the file and fill in your values
 ```
 
+### Built-in Services
+
+The following services have their OpenAPI specs bundled inside the binary. No `spec_url` is required — they work out of the box:
+
+| Service | Command | Default API URL | Auth method |
+|---------|---------|-----------------|-------------|
+| [GitCode](https://gitcode.com) | `gitcode` | `https://api.gitcode.com` | Personal access token (`?access_token=`) |
+| [Etherpad](https://etherpad.org) | `etherpad` | `https://etherpad.openeuler.org/api/1.3.0` | API key (`?apikey=`) |
+
 ### Config File Reference
 
 ```yaml
 services:
+  # ── GitCode (built-in — no spec_url needed) ──
+  gitcode:
+    # base_url defaults to https://api.gitcode.com.
+    # Override only if you run a self-hosted GitCode instance.
+    auth:
+      gitcode:
+        access_token: "your-personal-access-token"  # GitCode Settings → Personal Access Tokens
+
+  # ── Etherpad (built-in — no spec_url needed) ──
+  etherpad:
+    base_url: https://your-etherpad-host/api/1.3.0  # override for self-hosted
+    auth:
+      etherpad:
+        api_key: "your-etherpad-api-key"
+
+  # ── Forum / Discourse (spec_url required) ──
   forum:
     # spec_url: URL or local path to the service's OpenAPI spec.
     # Supported: http://, https://, file://, or a bare filesystem path.
@@ -143,6 +199,8 @@ All config values can be overridden by `CORA_`-prefixed environment variables. E
 | `CORA_SPEC_CACHE_DIR` | `spec_cache.dir` | Cache directory path |
 | `CORA_SERVICES_<NAME>_BASE_URL` | `services.<name>.base_url` | Override a service's API root |
 | `CORA_SERVICES_<NAME>_SPEC_URL` | `services.<name>.spec_url` | Override a service's spec URL |
+| `CORA_SERVICES_GITCODE_AUTH_GITCODE_ACCESS_TOKEN` | `services.gitcode.auth.gitcode.access_token` | GitCode personal access token |
+| `CORA_SERVICES_ETHERPAD_AUTH_ETHERPAD_API_KEY` | `services.etherpad.auth.etherpad.api_key` | Etherpad API key |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_KEY` | `services.<name>.auth.discourse.api_key` | Discourse API key |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_USERNAME` | `services.<name>.auth.discourse.api_username` | Discourse username |
 

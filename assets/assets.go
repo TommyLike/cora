@@ -7,3 +7,9 @@ import _ "embed"
 //
 //go:embed openapi/etherpad/openapi.json
 var EtherpadSpec []byte
+
+// GitcodeSpec is the OpenAPI spec for the GitCode platform,
+// embedded at build time from assets/openapi/gitcode/openapi.json.
+//
+//go:embed openapi/gitcode/openapi.json
+var GitcodeSpec []byte

@@ -11,8 +11,9 @@ import (
 //
 // Discourse: injects Api-Key and Api-Username headers.
 // Etherpad:  injects ?apikey= into the request URL's query string.
+// GitCode:   injects ?access_token= into the request URL's query string.
 //
-// Both providers inject credentials unconditionally when present; the server
+// All providers inject credentials unconditionally when present; the server
 // ignores them for public endpoints and enforces them for protected ones.
 func InjectAuth(req *http.Request, svc config.ServiceConfig) {
 	if d := svc.Auth.Discourse; d != nil {
@@ -29,6 +30,12 @@ func InjectAuth(req *http.Request, svc config.ServiceConfig) {
 		q.Set("apikey", e.APIKey)
 		req.URL.RawQuery = q.Encode()
 	}
+
+	if g := svc.Auth.Gitcode; g != nil && g.AccessToken != "" {
+		q := req.URL.Query()
+		q.Set("access_token", g.AccessToken)
+		req.URL.RawQuery = q.Encode()
+	}
 }
 
 // IsDiscourseAuthParam reports whether an OpenAPI parameter is one of the
@@ -36,4 +43,11 @@ func InjectAuth(req *http.Request, svc config.ServiceConfig) {
 // to the user as a CLI flag).
 func IsDiscourseAuthParam(name string) bool {
 	return name == "Api-Key" || name == "Api-Username"
+}
+
+// IsGitcodeAuthParam reports whether an OpenAPI parameter is a GitCode auth
+// parameter that should be injected automatically (not exposed as a CLI flag).
+// GitCode uses ?access_token= (PAT) and Authorization header (OAuth Bearer).
+func IsGitcodeAuthParam(name string) bool {
+	return name == "access_token" || name == "Authorization"
 }
