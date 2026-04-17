@@ -10,6 +10,7 @@ import (
 	"github.com/cncf/cora/internal/builder"
 	"github.com/cncf/cora/internal/config"
 	"github.com/cncf/cora/internal/executor"
+	"github.com/cncf/cora/internal/log"
 	"github.com/cncf/cora/internal/registry"
 	"github.com/cncf/cora/pkg/errs"
 )
@@ -25,6 +26,12 @@ func main() {
 }
 
 func run() error {
+	// ── Init logging (pre-scan os.Args before cobra parses) ───────────────────
+	// We must scan os.Args directly because config loading and spec loading
+	// happen before cobra's Execute() and need the log level set upfront.
+	verbose := containsFlag(os.Args, "--verbose")
+	log.Init(verbose)
+
 	// ── Load config ───────────────────────────────────────────────────────────
 	cfg, err := config.Load()
 	if err != nil {
@@ -50,6 +57,7 @@ driven by OpenAPI specs published by each backend service.`,
 	root.PersistentFlags().String("format", "table", "output format: table|json")
 	root.PersistentFlags().Bool("dry-run", false, "print the HTTP request without sending it")
 	root.PersistentFlags().Bool("refresh-spec", false, "bypass cache and re-fetch the service spec")
+	root.PersistentFlags().Bool("verbose", false, "enable verbose output for debugging (INFO + DEBUG logs)")
 
 	// ── Two-phase command loading (mirrors Google CLI) ────────────────────────
 	//
@@ -60,7 +68,7 @@ driven by OpenAPI specs published by each backend service.`,
 	// This means --help, shell completion, and --dry-run all see the full tree.
 	if err := injectServiceCommands(root, reg, cfg, exec); err != nil {
 		// Non-fatal: print a warning so "cora --help" still works.
-		fmt.Fprintln(os.Stderr, "[warn]", err)
+		log.Warn("%v", err)
 	}
 
 	// ── Built-in commands ─────────────────────────────────────────────────────
@@ -99,8 +107,7 @@ func injectServiceCommands(
 	entry, err := reg.Lookup(svcName)
 	if err != nil {
 		// Print a specific hint before cobra's generic "unknown command" fires.
-		fmt.Fprintf(os.Stderr, "[warn] service %q not found in config — "+
-			"check the service name or add it to your config file\n", svcName)
+		log.Warn("service %q not found in config — check the service name or add it to your config file", svcName)
 		return nil
 	}
 
@@ -112,6 +119,8 @@ func injectServiceCommands(
 		}
 	}
 
+	log.Debug("looking up service %q", svcName)
+	log.Info("loading spec for %q", svcName)
 	spec, err := entry.LoadSpec(root.Context())
 	if err != nil {
 		return fmt.Errorf("load spec for %q: %w", svcName, err)
@@ -120,6 +129,17 @@ func injectServiceCommands(
 	svcCmd := builder.Build(svcName, spec, cfg, exec)
 	root.AddCommand(svcCmd)
 	return nil
+}
+
+// containsFlag reports whether flag (e.g. "--verbose") appears in args.
+// Used to pre-scan os.Args before cobra has parsed the command line.
+func containsFlag(args []string, flag string) bool {
+	for _, a := range args {
+		if a == flag {
+			return true
+		}
+	}
+	return false
 }
 
 // firstNonFlag returns the first element of args that is not a flag (i.e. does

@@ -12,6 +12,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
+	"github.com/cncf/cora/internal/log"
 	"github.com/cncf/cora/pkg/errs"
 )
 
@@ -23,6 +24,8 @@ import (
 //  2. Cache missing or expired               →  fetch, write cache, return fresh
 //  3. Fetch fails AND stale cache available  →  return stale + stderr warning
 type Loader struct {
+	// Name is the human-readable service name used in log messages.
+	Name string
 	// SpecURL is the canonical source: http(s)://... or file://... or bare path.
 	// Empty when the spec is provided via FallbackData (built-in services).
 	SpecURL string
@@ -37,6 +40,7 @@ type Loader struct {
 // cacheDir is the directory where "<service>_spec.json" will live.
 func NewLoader(svcName, specURL, cacheDir string, ttl time.Duration) *Loader {
 	return &Loader{
+		Name:      svcName,
 		SpecURL:   specURL,
 		CacheFile: filepath.Join(cacheDir, svcName+"_spec.json"),
 		TTL:       ttl,
@@ -48,6 +52,7 @@ func NewLoader(svcName, specURL, cacheDir string, ttl time.Duration) *Loader {
 // performance, but no network call is ever made.
 func NewEmbeddedLoader(svcName string, data []byte, cacheDir string, ttl time.Duration) *Loader {
 	return &Loader{
+		Name:         svcName,
 		FallbackData: data,
 		CacheFile:    filepath.Join(cacheDir, svcName+"_spec.json"),
 		TTL:          ttl,
@@ -58,25 +63,28 @@ func NewEmbeddedLoader(svcName string, data []byte, cacheDir string, ttl time.Du
 func (l *Loader) Load(ctx context.Context) (*openapi3.T, error) {
 	// --- Tier 1: fresh cache ---
 	if entry, err := readCache(l.CacheFile); err == nil {
-		if time.Since(entry.FetchedAt) < l.TTL {
+		age := time.Since(entry.FetchedAt)
+		if age < l.TTL {
+			log.Info("cache hit for %q (age: %s, TTL: %s)", l.Name, age.Round(time.Second), l.TTL)
 			return parseSpec(entry.RawSpec)
 		}
 	}
 
 	// --- Tier 2: fetch from source ---
+	log.Info("fetching spec for %q from %s", l.Name, l.SpecURL)
 	raw, fetchErr := l.fetch(ctx)
 	if fetchErr == nil {
 		// Best-effort cache write; ignore error so we still return the spec
-		_ = writeCache(l.CacheFile, l.SpecURL, raw)
+		if err := writeCache(l.CacheFile, l.SpecURL, raw); err == nil {
+			log.Info("spec cached to %s", l.CacheFile)
+		}
 		return parseSpec(raw)
 	}
 
 	// --- Tier 3: stale cache fallback ---
 	if entry, err := readCache(l.CacheFile); err == nil {
-		fmt.Fprintf(os.Stderr,
-			"[warn] could not refresh spec for %q (%v); using cached version from %s\n",
-			l.SpecURL, fetchErr, entry.FetchedAt.Format(time.RFC3339),
-		)
+		age := time.Since(entry.FetchedAt)
+		log.Warn("fetch failed for %q, using stale cache (age: %s): %v", l.Name, age.Round(time.Second), fetchErr)
 		return parseSpec(entry.RawSpec)
 	}
 

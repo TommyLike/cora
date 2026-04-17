@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/cncf/cora/internal/auth"
 	"github.com/cncf/cora/internal/config"
+	"github.com/cncf/cora/internal/log"
 	"github.com/cncf/cora/internal/output"
 	"github.com/cncf/cora/pkg/errs"
 )
@@ -90,7 +92,16 @@ func (e *Executor) Execute(ctx context.Context, req *Request) error {
 
 	// Inject auth credentials (Discourse: headers; Etherpad: ?apikey= query param).
 	// Done before dry-run output so the printed URL reflects the actual request.
-	auth.InjectAuth(httpReq, svcCfg)
+	auth.InjectAuth(httpReq, svcCfg, req.ServiceName)
+
+	// Log the outgoing request (after auth injection so the masked URL is accurate).
+	bodySize := 0
+	if len(req.Body) > 0 {
+		if b, err2 := json.Marshal(req.Body); err2 == nil {
+			bodySize = len(b)
+		}
+	}
+	log.Debug("→ %s %s  [body: %d bytes]", req.Method, log.MaskURL(httpReq.URL.String()), bodySize)
 
 	// --dry-run: print what would be sent and exit
 	if req.DryRun {
@@ -103,6 +114,7 @@ func (e *Executor) Execute(ctx context.Context, req *Request) error {
 	}
 
 	// Execute
+	start := time.Now()
 	resp, err := e.client.Do(httpReq)
 	if err != nil {
 		return errs.NewAPIError("request failed", err)
@@ -110,9 +122,13 @@ func (e *Executor) Execute(ctx context.Context, req *Request) error {
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
+	elapsed := time.Since(start)
 	if err != nil {
 		return fmt.Errorf("read response body: %w", err)
 	}
+
+	log.Debug("← %s (%d bytes, %dms)", resp.Status, len(respBytes), elapsed.Milliseconds())
+	log.Debug("response body: %s", log.FormatBody(respBytes, 3072))
 
 	// Treat 4xx/5xx as API errors
 	if resp.StatusCode >= 400 {

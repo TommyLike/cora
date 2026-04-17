@@ -4,10 +4,11 @@ import (
 	"net/http"
 
 	"github.com/cncf/cora/internal/config"
+	"github.com/cncf/cora/internal/log"
 )
 
 // InjectAuth adds authentication credentials to an outgoing request based on
-// the service's configured auth provider.
+// the service's configured auth provider. svcName is used only for log output.
 //
 // Discourse: injects Api-Key and Api-Username headers.
 // Etherpad:  injects ?apikey= into the request URL's query string.
@@ -15,7 +16,7 @@ import (
 //
 // All providers inject credentials unconditionally when present; the server
 // ignores them for public endpoints and enforces them for protected ones.
-func InjectAuth(req *http.Request, svc config.ServiceConfig) {
+func InjectAuth(req *http.Request, svc config.ServiceConfig, svcName string) {
 	if d := svc.Auth.Discourse; d != nil {
 		if d.APIKey != "" {
 			req.Header.Set("Api-Key", d.APIKey)
@@ -23,18 +24,21 @@ func InjectAuth(req *http.Request, svc config.ServiceConfig) {
 		if d.APIUsername != "" {
 			req.Header.Set("Api-Username", d.APIUsername)
 		}
+		log.Debug("auth: injecting discourse headers for service %q", svcName)
 	}
 
 	if e := svc.Auth.Etherpad; e != nil && e.APIKey != "" {
 		q := req.URL.Query()
 		q.Set("apikey", e.APIKey)
 		req.URL.RawQuery = q.Encode()
+		log.Debug("auth: injecting etherpad apikey for service %q", svcName)
 	}
 
 	if g := svc.Auth.Gitcode; g != nil && g.AccessToken != "" {
 		q := req.URL.Query()
 		q.Set("access_token", g.AccessToken)
 		req.URL.RawQuery = q.Encode()
+		log.Debug("auth: injecting gitcode access_token for service %q", svcName)
 	}
 }
 

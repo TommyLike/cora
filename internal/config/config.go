@@ -10,6 +10,8 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
+
+	"github.com/cncf/cora/internal/log"
 )
 
 const (
@@ -146,11 +148,14 @@ func loadDotEnv() {
 			continue
 		}
 		// Apply values only for vars that are not already meaningfully set.
+		count := 0
 		for k, v := range envMap {
 			if os.Getenv(k) == "" {
 				_ = os.Setenv(k, v)
+				count++
 			}
 		}
+		log.Debug(".env loaded from %s (%d vars applied)", f, count)
 		return // stop at the first file found
 	}
 }
@@ -203,6 +208,8 @@ func LoadFrom(path string) (*Config, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("parse config %s: %w", path, err)
 	}
+
+	log.Info("config loaded from %s", path)
 
 	// Guard zero values (viper defaults should cover these, but be defensive).
 	if cfg.SpecCache.TTL == 0 {

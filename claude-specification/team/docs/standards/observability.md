@@ -217,3 +217,74 @@ Claude 在编写日志和监控相关代码时必须遵守：
 3. **不记录敏感信息**——密码、Token 等必须脱敏
 4. **添加 trace_id 传播**——跨函数调用保持 context 传递
 5. **新增 API 时提醒添加指标**——至少包含 RED 三项基础指标
+
+---
+
+## CLI 工具日志规范（补充）
+
+> 本节适用于命令行工具项目，与上方服务端规范并列，不互相替代。
+
+### CLI 日志核心原则
+
+- **默认安静（quiet by default）**：正常运行只输出用户数据（stdout）和必要警告（stderr），不打印流程信息
+- **按需调试**：通过 `--verbose` 全局 Flag 开启 INFO + DEBUG 级别输出
+- **全部写 stderr**：日志（包括 INFO/DEBUG）统一写 stderr，stdout 只输出用户数据，保证 pipe 安全
+- **无时间戳**：CLI 不需要时间戳（由 shell history 提供），保持输出简洁
+- **不引入重型日志库**：CLI 工具使用轻量标准库实现日志，避免增加二进制体积
+
+### CLI 日志级别
+
+| 级别    | 前缀      | 显示条件       | 用途 |
+|---------|-----------|---------------|------|
+| `ERROR` | `[ERROR]` | 始终           | 不可恢复的失败 |
+| `WARN`  | `[WARN]`  | 始终           | 降级行为（使用过期缓存等） |
+| `INFO`  | `[INFO]`  | `--verbose` 时 | 正常流程状态（spec 加载、缓存命中等） |
+| `DEBUG` | `[DEBUG]` | `--verbose` 时 | 细粒度诊断（请求 URL、响应体、认证类型） |
+
+> 级别前缀必须大写，格式为 `[LEVEL]` 加两个空格对齐。
+
+### CLI 敏感信息脱敏要求
+
+Claude 在 CLI 项目中编写日志时，必须对以下内容脱敏：
+
+| 数据类型 | 处理方式 |
+|---------|---------|
+| URL query 参数（access_token、apikey、token、secret、password、key） | 值替换为 `***` |
+| 请求头（Authorization、Api-Key 及同类鉴权头） | 值替换为 `***` |
+| 配置文件内容（API key、token 的实际值） | **永不记录**，只记录配置文件路径 |
+| 环境变量值 | 只记录变量名，不记录值 |
+| 响应 body | verbose 模式下记录，超过 2048 字节截断并注明总大小 |
+
+### CLI 关键埋点要求
+
+在 CLI 项目中，以下位置必须有日志埋点：
+
+| 位置 | 级别 | 内容 |
+|------|------|------|
+| 配置文件加载 | INFO | 加载路径（不含内容） |
+| .env 文件加载 | DEBUG | 文件路径 + 变量数量（不含值） |
+| Spec 缓存命中 | INFO | 服务名 + 缓存年龄 |
+| Spec 远程拉取 | INFO | 服务名 + 来源 URL |
+| Spec 降级使用过期缓存 | WARN | 服务名 + 过期时长 + 原因 |
+| 认证注入 | DEBUG | 服务名 + provider 类型（不含 key 值） |
+| HTTP 请求发出 | DEBUG | Method + 脱敏后 URL + body 大小 |
+| HTTP 响应接收 | DEBUG | status code + body 大小 + 耗时 |
+| HTTP 响应 body | DEBUG | 截断后的响应内容 |
+
+### CLI --verbose Flag 接入规范
+
+```go
+// 1. 在 root command 添加全局 PersistentFlag
+root.PersistentFlags().Bool("verbose", false, "enable verbose output for debugging")
+
+// 2. 必须预扫描 os.Args，不能等 cobra 解析后再读取
+//    原因：config 加载、spec 加载均发生在 cobra 解析之前
+verbose := containsFlag(os.Args, "--verbose")
+log.Init(verbose)
+```
+
+### CLI 日志包依赖约束
+
+- `internal/log` 必须是叶子依赖，**只能引用标准库**，不可引用项目内其他包
+- 其他包可以引用 `internal/log`，禁止反向依赖
+- 禁止在 `internal/log` 中引入任何第三方日志库
