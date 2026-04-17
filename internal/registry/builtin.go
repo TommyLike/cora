@@ -9,18 +9,17 @@ import (
 )
 
 const (
-	etherpadName       = "etherpad"
-	etherpadDefaultURL = "https://etherpad.openeuler.org/api/1.3.0"
-
-	gitcodeName       = "gitcode"
-	gitcodeDefaultURL = "https://api.gitcode.com"
+	etherpadName = "etherpad"
+	gitcodeName  = "gitcode"
 )
 
 // registerBuiltins adds built-in service entries to the registry and ensures
 // each built-in is present in cfg.Services (so the executor can look it up).
 //
-// User config takes priority: if the user has already set a base_url or auth
-// block for a built-in service, those values are preserved as-is.
+// The OpenAPI spec for each built-in is embedded in the binary; no remote
+// spec_url is required. However, base_url MUST be explicitly set in the user's
+// config file — there are no hardcoded default URLs. If a built-in service is
+// missing its base_url the executor will return a clear config error at runtime.
 func registerBuiltins(r *Registry, cfg *config.Config) {
 	cacheDir := cfg.SpecCache.Dir
 	ttl := cfg.SpecCache.TTL
@@ -29,51 +28,46 @@ func registerBuiltins(r *Registry, cfg *config.Config) {
 	}
 
 	addBuiltin(r, cfg, builtinDef{
-		name:       etherpadName,
-		defaultURL: etherpadDefaultURL,
-		specData:   assets.EtherpadSpec,
-		cacheDir:   cacheDir,
-		ttl:        ttl,
+		name:     etherpadName,
+		specData: assets.EtherpadSpec,
+		cacheDir: cacheDir,
+		ttl:      ttl,
 	})
 
 	addBuiltin(r, cfg, builtinDef{
-		name:       gitcodeName,
-		defaultURL: gitcodeDefaultURL,
-		specData:   assets.GitcodeSpec,
-		cacheDir:   cacheDir,
-		ttl:        ttl,
+		name:     gitcodeName,
+		specData: assets.GitcodeSpec,
+		cacheDir: cacheDir,
+		ttl:      ttl,
 	})
 }
 
 type builtinDef struct {
-	name       string
-	defaultURL string
-	specData   []byte
-	cacheDir   string
-	ttl        time.Duration
+	name     string
+	specData []byte
+	cacheDir string
+	ttl      time.Duration
 }
 
 func addBuiltin(r *Registry, cfg *config.Config, b builtinDef) {
-	// Determine effective base_url: user config wins, otherwise use default.
-	baseURL := b.defaultURL
-	if svc, ok := cfg.Services[b.name]; ok && svc.BaseURL != "" {
+	// base_url comes entirely from user config; empty string is allowed here —
+	// the executor will surface a clear "base_url is not set" error at call time.
+	baseURL := ""
+	if svc, ok := cfg.Services[b.name]; ok {
 		baseURL = svc.BaseURL
 	}
 
 	r.entries[b.name] = &Entry{
 		Name:    b.name,
 		BaseURL: baseURL,
-		SpecURL: "", // embedded — no remote URL
+		SpecURL: "", // embedded spec — no remote URL needed
 		loader:  spec.NewEmbeddedLoader(b.name, b.specData, b.cacheDir, b.ttl),
 	}
 
-	// Ensure cfg.Services has the effective base_url so the executor can find
-	// this service. When the user only sets auth (without base_url), backfill
-	// the default.
-	if existing, ok := cfg.Services[b.name]; !ok {
-		cfg.Services[b.name] = config.ServiceConfig{BaseURL: baseURL}
-	} else if existing.BaseURL == "" {
-		existing.BaseURL = baseURL
-		cfg.Services[b.name] = existing
+	// Ensure cfg.Services contains an entry for this built-in so the executor
+	// can look it up. If the user omitted the service entirely from config, add
+	// a stub; if they configured it (e.g. auth-only), preserve all their values.
+	if _, ok := cfg.Services[b.name]; !ok {
+		cfg.Services[b.name] = config.ServiceConfig{}
 	}
 }

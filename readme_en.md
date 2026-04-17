@@ -1,7 +1,8 @@
 # Cora
-中文版本：[readme.md](readme.md)
+[中文版本](readme.md)
 
 Cora, Community Collaboration CLI. A unified command-line interface to interact with community services. Access forums, mailing lists, meetings, issue trackers, and more — all from a single binary, driven by OpenAPI specs published by each backend service.
+
 ![Cora](assets/img/cora.png)
 
 ## Overview
@@ -13,7 +14,18 @@ Cora, Community Collaboration CLI. A unified command-line interface to interact 
 - **Zero-code extensibility** — Adding a new backend service requires only a config entry pointing to its OpenAPI spec. No CLI code changes needed.
 - **OpenAPI-driven commands** — Commands are generated dynamically at runtime from each service's OpenAPI 3.0 spec.
 - **Spec caching** — Specs are cached locally (24h TTL by default) for sub-200ms cold starts with no network overhead.
+- **Customisable output** — Declarative view configs let you control which fields are shown and how they're formatted. `--format json/yaml` outputs the full raw response, ideal for scripting and agents.
 - **Scriptable** — stdout/stderr separation, semantic exit codes, and `--format json` output suitable for piping to `jq`.
+
+## Supported Services
+
+| Service | Command | Spec source | Auth method |
+|---------|---------|-------------|-------------|
+| [GitCode](https://gitcode.com) | `gitcode` | Built-in (no `spec_url` needed) | Personal access token (`?access_token=`) |
+| [Etherpad](https://etherpad.org) | `etherpad` | Built-in (no `spec_url` needed) | API key (`?apikey=`) |
+| [Forum / Discourse](https://www.discourse.org) | `forum` (customisable) | Requires `spec_url` | API key + username (headers) |
+
+> Built-in services have their OpenAPI spec embedded in the binary — no `spec_url` required. However, `base_url` must be explicitly set in the config file; there are no hardcoded default URLs.
 
 ## Command Structure
 
@@ -24,8 +36,8 @@ cora <service> <resource> <verb> [flags]
 | Layer | Example | Source |
 |-------|---------|--------|
 | `cora` | — | Binary entry point |
-| `<service>` | `forum`, `mail`, `issue` | Config file |
-| `<resource>` | `posts`, `topics`, `threads` | OpenAPI `tags[0]` |
+| `<service>` | `gitcode`, `forum`, `etherpad` | Config file |
+| `<resource>` | `issues`, `posts`, `topics` | OpenAPI `tags[0]` |
 | `<verb>` | `list`, `get`, `create`, `delete` | OpenAPI `operationId` |
 
 ## Usage Examples
@@ -33,27 +45,23 @@ cora <service> <resource> <verb> [flags]
 ### GitCode
 
 ```bash
-# List repositories in an organization
-cora gitcode repositories list --owner my-org
+# List repositories
+cora gitcode repos list --owner my-org
 
 # Get repository details
-cora gitcode repositories get --owner my-org --repo my-repo
+cora gitcode repos get --owner my-org --repo my-repo
 
 # List open issues
 cora gitcode issues list --owner my-org --repo my-repo --state open
 
-# Create an issue
-cora gitcode issues create --owner my-org --repo my-repo \
-  --title "Bug: something is broken" --body "Steps to reproduce..."
-
-# List pull requests
-cora gitcode pull-requests list --owner my-org --repo my-repo
-
-# View commit history
-cora gitcode commit list --owner my-org --repo my-repo
+# Get a single issue (formatted table)
+cora gitcode issues get --owner my-org --repo my-repo --number 1367
 
 # Output as JSON and pipe to jq
-cora gitcode repositories list --owner my-org --format json | jq '.[].name'
+cora gitcode issues get --owner my-org --repo my-repo --number 1367 --format json | jq '.title'
+
+# Output as YAML
+cora gitcode issues list --owner my-org --repo my-repo --format yaml
 
 # Preview the HTTP request without sending it
 cora gitcode issues create --owner my-org --repo my-repo --title "test" --dry-run
@@ -62,16 +70,13 @@ cora gitcode issues create --owner my-org --repo my-repo --title "test" --dry-ru
 ### Forum (Discourse)
 
 ```bash
-# List recent posts in the forum
+# List recent posts
 cora forum posts list
 
 # Get a specific post
 cora forum posts get --id 42
 
-# Create a new post (preview the HTTP request first)
-cora forum posts create --title "Release v1.2.0" --raw "Body text" --dry-run
-
-# Create a post for real
+# Create a post
 cora forum posts create --title "Release v1.2.0" --raw "Body text"
 
 # Output as JSON and pipe to jq
@@ -79,18 +84,155 @@ cora forum posts list --format json | jq '.[].username'
 
 # Force-refresh the cached OpenAPI spec
 cora forum posts list --refresh-spec
+```
 
-# Manage the spec cache directly
-cora spec refresh forum
+### Etherpad
+
+```bash
+# List all pads
+cora etherpad pads list
+
+# Get pad content
+cora etherpad pads get-text --pad-id my-pad
+
+# Create a new pad
+cora etherpad pads create-pad --pad-id new-pad
 ```
 
 ### Global Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--format` | `table` | Output format: `table` or `json` |
+| `--format` | `table` | Output format: `table`, `json`, or `yaml` |
 | `--dry-run` | `false` | Print the HTTP request without sending it |
 | `--refresh-spec` | `false` | Bypass cache and re-fetch the service spec |
+| `--verbose` | `false` | Enable verbose logging (INFO + DEBUG level) |
+
+## Output Customisation
+
+### Format Modes
+
+`--format` controls the global output format and applies to every sub-command:
+
+| Value | Behaviour |
+|-------|-----------|
+| `table` (default) | Applies the view config to render a formatted table; generic fallback when no view is defined |
+| `json` | Bypasses all views, pretty-prints the full raw response as JSON |
+| `yaml` | Bypasses all views, converts the full raw response to YAML |
+
+**`--format json/yaml` always outputs the complete, unfiltered raw response** — suitable for scripting and agents. The view system is only active in `table` mode.
+
+### View System
+
+cora ships with built-in view definitions for common operations (field selection, formatting). You can override them or add new ones via `~/.config/cora/views.yaml`.
+
+**Operations covered by built-in views:**
+
+| Service | Operation | Render mode |
+|---------|-----------|-------------|
+| gitcode | `issues get` | Vertical KV table (single object) |
+| gitcode | `issues list` | Horizontal table (list) |
+| gitcode | `repos get` | Vertical KV table |
+| gitcode | `repos list` | Horizontal table |
+| gitcode | `pulls get` | Vertical KV table |
+| gitcode | `pulls list` | Horizontal table |
+| forum | `topics list` | Horizontal table |
+| forum | `topics get` | Vertical KV table |
+| forum | `posts list` | Horizontal table |
+| etherpad | `pads list` | Horizontal table |
+
+### Setting up views.yaml
+
+Copy the example file to the default location and edit as needed:
+
+```bash
+mkdir -p ~/.config/cora
+cp config/views.example.yaml ~/.config/cora/views.yaml
+```
+
+Override the path via environment variable:
+
+```bash
+export CORA_VIEWS=/path/to/my-views.yaml
+```
+
+Or set it in `config.yaml`:
+
+```yaml
+views_file: /path/to/my-views.yaml
+```
+
+### views.yaml Format
+
+```yaml
+<service-name>:
+  <resource>/<verb>:
+    root_field: ""        # optional: key that contains the list (empty = auto-detect)
+    columns:
+      - field: <dot.path> # required: JSON field path, supports dot notation (e.g. user.login)
+        label: <string>   # optional: column header (auto-derived when empty)
+        format: <type>    # optional: text (default) | json | date | multiline
+        truncate: <int>   # optional: max rune count before "…" (0 = unlimited)
+        width: <int>      # optional: fixed column width (list tables only)
+        date_fmt: <string># optional: Go time format for format=date
+        indent: <bool>    # optional: pretty-print JSON when format=json
+```
+
+**Format types:**
+
+| Value | Best for | Rendering |
+|-------|---------|-----------|
+| `text` (default) | Strings, numbers, booleans | Converted to string, newlines collapsed, `truncate` applied |
+| `json` | Nested objects, arrays | Raw JSON fragment; `indent: true` enables pretty-print |
+| `date` | ISO 8601 timestamps | Parsed and reformatted using `date_fmt` (default `2006-01-02`) |
+| `multiline` | Long text (body, description) | Newlines preserved, `truncate` applied by character count |
+
+### Example: Override a built-in view to show specific fields
+
+```yaml
+# ~/.config/cora/views.yaml
+gitcode:
+  issues/get:
+    columns:
+      - field: number
+        label: "No."
+      - field: title
+        label: Title
+        truncate: 80
+      - field: state
+      - field: html_url
+        label: URL
+      - field: user.login
+        label: Author
+      - field: created_at
+        label: Created
+        format: date
+```
+
+### Example: Define a view for an operation with no built-in
+
+```yaml
+gitcode:
+  commits/list:
+    columns:
+      - field: sha
+        label: SHA
+        truncate: 8
+        width: 10
+      - field: commit.message
+        label: Message
+        truncate: 60
+        width: 62
+      - field: commit.author.name
+        label: Author
+        width: 18
+      - field: commit.author.date
+        label: Date
+        format: date
+        width: 12
+```
+
+User views completely replace the matching built-in view (whole replacement, no column merging).
 
 ## Installation
 
@@ -102,7 +244,7 @@ cora spec refresh forum
 git clone https://github.com/cncf/cora.git
 cd cora
 make build
-mv cora /usr/local/bin/
+mv bin/cora /usr/local/bin/
 ```
 
 ### Docker
@@ -131,34 +273,24 @@ Cora reads its configuration from `~/.config/cora/config.yaml` by default. Overr
 
 ```bash
 mkdir -p ~/.config/cora
-cp config.example.yaml ~/.config/cora/config.yaml
+cp config/config.example.yaml ~/.config/cora/config.yaml
 # Edit the file and fill in your values
 ```
-
-### Built-in Services
-
-The following services have their OpenAPI specs bundled inside the binary. No `spec_url` is required — they work out of the box:
-
-| Service | Command | Default API URL | Auth method |
-|---------|---------|-----------------|-------------|
-| [GitCode](https://gitcode.com) | `gitcode` | `https://api.gitcode.com` | Personal access token (`?access_token=`) |
-| [Etherpad](https://etherpad.org) | `etherpad` | `https://etherpad.openeuler.org/api/1.3.0` | API key (`?apikey=`) |
 
 ### Config File Reference
 
 ```yaml
 services:
-  # ── GitCode (built-in — no spec_url needed) ──
+  # ── GitCode (built-in spec — no spec_url needed) ──
   gitcode:
-    # base_url defaults to https://api.gitcode.com.
-    # Override only if you run a self-hosted GitCode instance.
+    base_url: https://api.gitcode.com   # required; no default
     auth:
       gitcode:
         access_token: "your-personal-access-token"  # GitCode Settings → Personal Access Tokens
 
-  # ── Etherpad (built-in — no spec_url needed) ──
+  # ── Etherpad (built-in spec — no spec_url needed) ──
   etherpad:
-    base_url: https://your-etherpad-host/api/1.3.0  # override for self-hosted
+    base_url: https://your-etherpad-host/api/1.3.0  # required; no default
     auth:
       etherpad:
         api_key: "your-etherpad-api-key"
@@ -166,10 +298,10 @@ services:
   # ── Forum / Discourse (spec_url required) ──
   forum:
     # spec_url: URL or local path to the service's OpenAPI spec.
-    # Supported: http://, https://, file://, or a bare filesystem path.
+    # Supported schemes: http://, https://, file://, or a bare filesystem path.
     spec_url: assets/openapi/forum/openapi.json
 
-    # base_url: the API root that all paths from the spec are appended to.
+    # base_url: the API root that all spec paths are appended to.
     base_url: https://forum.example.org
 
     auth:
@@ -177,24 +309,30 @@ services:
         api_key: "your-api-key"
         api_username: "your-username"
 
-  # Add more services — no CLI code changes required.
-  # mail:
-  #   spec_url: https://lists.example.org/openapi.yaml
-  #   base_url: https://lists.example.org
+  # Add more services without modifying CLI code:
+  # myservice:
+  #   spec_url: https://myservice.example.org/openapi.yaml
+  #   base_url: https://myservice.example.org
 
 # Global spec cache settings (optional — defaults shown).
 spec_cache:
   ttl: 24h
   dir: ~/.config/cora/cache
+
+# Custom views.yaml path (optional — defaults to ~/.config/cora/views.yaml).
+views_file: ~/.config/cora/views.yaml
 ```
+
+> **Note:** Built-in services (`gitcode`, `etherpad`) have no hardcoded default `base_url`. It must be set explicitly in the config file.
 
 ### Environment Variables
 
-All config values can be overridden by `CORA_`-prefixed environment variables. Environment variables take precedence over the config file. The naming rule: join the config key path with `_`, uppercase it, and prepend `CORA_`.
+All config values can be overridden by `CORA_`-prefixed environment variables. Environment variables take precedence over the config file.
 
 | Environment variable | Config key | Description |
 |----------------------|-----------|-------------|
 | `CORA_CONFIG` | — | Override the config file path |
+| `CORA_VIEWS` | — | Override the views.yaml path |
 | `CORA_SPEC_CACHE_TTL` | `spec_cache.ttl` | Cache TTL (e.g. `12h`) |
 | `CORA_SPEC_CACHE_DIR` | `spec_cache.dir` | Cache directory path |
 | `CORA_SERVICES_<NAME>_BASE_URL` | `services.<name>.base_url` | Override a service's API root |
@@ -223,10 +361,10 @@ CORA_SERVICES_FORUM_AUTH_DISCOURSE_API_KEY=dev-api-key
 CORA_SERVICES_FORUM_AUTH_DISCOURSE_API_USERNAME=system
 ```
 
-### Spec Loading Behavior
+### Spec Loading Behaviour
 
-| Priority | Condition | Behavior |
-|----------|-----------|----------|
+| Priority | Condition | Behaviour |
+|----------|-----------|-----------|
 | 1 (fastest) | Cache exists and within TTL | Read local file, no network |
 | 2 | Cache expired or missing | Fetch from `spec_url`, write cache |
 | 3 | Fetch fails, stale cache exists | Use stale cache + stderr warning |
@@ -248,7 +386,7 @@ Use `--refresh-spec` to force a re-fetch regardless of TTL.
 ### Common Commands
 
 ```bash
-make build          # Compile binary (output: ./cora)
+make build          # Compile binary (output: ./bin/cora)
 make build-prod     # Production build (CGO disabled, stripped)
 make test           # Run all tests with race detector
 make test-unit      # Run short tests only (skip integration)
@@ -266,26 +404,10 @@ make clean          # Remove build artefacts
 go run ./cmd/cora -- forum posts list
 
 # Build then run
-make build && ./cora forum posts list
-```
-
-### Using a local OpenAPI spec
-
-```yaml
-services:
-  forum:
-    spec_url: assets/openapi/forum/openapi.json   # relative path (recommended)
-    # spec_url: file:///path/to/openapi.json      # absolute path also works
-    base_url: http://localhost:3000
-    auth:
-      discourse:
-        api_key: "dev-api-key"
-        api_username: "system"
+make build && ./bin/cora forum posts list
 ```
 
 ### Testing
-
-Tests follow the pyramid model — predominantly unit tests covering core logic.
 
 ```bash
 # Full test suite with race detector
@@ -303,7 +425,8 @@ Test files by package:
 | `internal/spec/cache_test.go` | Cache read/write, atomic writes, TTL |
 | `internal/spec/loader_test.go` | Three-tier loading, HTTP, local files, fallback |
 | `internal/builder/command_test.go` | Resource/verb name derivation, flag mapping |
-| `internal/output/formatter_test.go` | JSON/table output, terminal safety, data extraction |
+| `internal/log/mask_test.go` | URL masking, header masking, body formatting |
+| `internal/output/formatter_test.go` | JSON/YAML/table output, view rendering, terminal safety |
 
 ### Project Layout
 
@@ -311,30 +434,42 @@ Test files by package:
 cora/
 ├── cmd/cora/main.go                  # Entry point, two-phase command loading
 ├── internal/
+│   ├── auth/resolver.go              # Auth credential injection
 │   ├── builder/
 │   │   ├── command.go                # OpenAPI spec → Cobra command tree
 │   │   └── command_test.go
 │   ├── config/config.go              # Config loading and structures
 │   ├── executor/executor.go          # HTTP request execution
+│   ├── log/
+│   │   ├── log.go                    # Levelled logging (Error/Warn/Info/Debug)
+│   │   └── mask.go                   # URL/header masking, response body formatting
 │   ├── output/
-│   │   ├── formatter.go              # Table / JSON output formatting
+│   │   ├── formatter.go              # Table / JSON / YAML output formatting
 │   │   └── formatter_test.go
-│   ├── registry/registry.go          # Service registry
+│   ├── registry/
+│   │   ├── registry.go               # Service registry
+│   │   └── builtin.go                # Built-in service registration (gitcode, etherpad)
 │   ├── spec/
 │   │   ├── loader.go                 # Three-tier spec loading
-│   │   ├── loader_test.go
 │   │   ├── cache.go                  # Cache read/write (atomic)
-│   │   └── cache_test.go
-│   └── auth/resolver.go              # Auth header injection
+│   │   └── *_test.go
+│   └── view/
+│       ├── view.go                   # ViewColumn / ViewConfig / Registry types
+│       ├── extract.go                # Field path extraction and value formatting
+│       ├── builtin.go                # Built-in view definitions
+│       └── loader.go                 # views.yaml loader, merges with built-ins
 ├── pkg/errs/
 │   ├── errors.go                     # Error types and exit codes
 │   └── errors_test.go
-├── assets/openapi/                   # Bundled spec files (for local dev)
+├── assets/
+│   ├── openapi/                      # Bundled OpenAPI spec files
+│   └── assets.go                     # go:embed declarations
+├── config/
+│   ├── config.example.yaml           # Config file template
+│   └── views.example.yaml            # views.yaml template
 ├── spec/                             # Architecture design documents
 ├── Makefile
-├── Dockerfile
-├── config.example.yaml
-└── .env.example                      # Local dev environment variable template
+└── Dockerfile
 ```
 
 ## Adding a New Service
@@ -355,20 +490,14 @@ cora/
    cora myservice --help
    ```
 
+4. (Optional) Define custom views in `~/.config/cora/views.yaml` for frequently used operations.
+
 ### Backend Service Requirements
 
 - Use **OpenAPI 3.0** (Swagger 2.0 is not supported)
 - Assign `tags` to operations — the first tag becomes the `<resource>` command name
 - Use `operationId` values with a known verb prefix: `list`, `get`, `create`, `update`, `delete`, `patch`
 - Declare `security` per operation (absent or empty means no auth required)
-
-Optional `x-cli-*` extensions for richer CLI output:
-
-```yaml
-x-cli-examples:
-  - "cora myservice widgets list --active"
-x-cli-flags: [active, limit, cursor]
-```
 
 ## Exit Codes
 
@@ -384,7 +513,7 @@ x-cli-flags: [active, limit, cursor]
 
 ## Architecture
 
-See [`spec/architecture-design.md`](spec/architecture-design.md) for the full design document, including ADRs for framework selection, OpenAPI-driven command generation, auth strategy, and spec caching.
+See the [`spec/`](spec/) directory for the full design documents, including architecture decisions, OpenAPI-driven command generation, auth strategy, spec caching, and the view system design.
 
 ## Contributing
 

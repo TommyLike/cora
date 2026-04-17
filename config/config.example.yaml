@@ -4,17 +4,17 @@
 services:
   # ── GitCode ──────────────────────────────────────────────────────────────────
   # Built-in service — spec is embedded in the binary (no spec_url needed).
-  # Default base_url: https://api.gitcode.com
+  # base_url is required; no default is provided.
   # Get your personal access token at: https://gitcode.com/-/user_settings/personal_access_tokens
   gitcode:
+    base_url: https://api.gitcode.com
     auth:
       gitcode:
         access_token: YOUR_GITCODE_PERSONAL_ACCESS_TOKEN
 
   # ── Etherpad ─────────────────────────────────────────────────────────────────
   # Built-in service — spec is embedded in the binary (no spec_url needed).
-  # Default base_url: https://etherpad.openeuler.org/api/1.3.0
-  # Override base_url when pointing at a self-hosted Etherpad instance.
+  # base_url is required; set it to your Etherpad instance's API root.
   etherpad:
     base_url: https://your-etherpad-host/api/1.3.0
     auth:

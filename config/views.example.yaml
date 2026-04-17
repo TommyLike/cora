@@ -138,7 +138,12 @@ forum:
         label: Created
         format: date
         width: 12
-
+etherpad:
+  pad/get-text:
+    columns:
+      - field: data.text
+        label: Text
+        format: multiline
 # 示例：覆盖内置 view，只显示 3 个字段
 # gitcode:
 #   issues/get:
