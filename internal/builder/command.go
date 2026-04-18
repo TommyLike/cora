@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"unicode"
@@ -63,9 +64,9 @@ func Build(
 			// avoid duplicate commands. We detect this by checking whether all
 			// HTTP methods on the path share the same stripped operationId.
 			if shouldDeduplicateMethods(ops) {
-				if getOp, ok := ops["get"]; ok && getOp != nil {
+				if getOp, ok := ops[http.MethodGet]; ok && getOp != nil {
 					res := resourceName(getOp, path)
-					resources[res] = append(resources[res], opEntry{path, "get", getOp})
+					resources[res] = append(resources[res], opEntry{path, http.MethodGet, getOp})
 					continue
 				}
 			}

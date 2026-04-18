@@ -45,11 +45,12 @@ func run() error {
 	viewResult := view.LoadRegistry(cfg.ViewsFile)
 	viewReg := viewResult.Registry
 	if viewResult.ResolvedPath != "" {
-		if viewResult.Loaded {
+		switch {
+		case viewResult.Loaded:
 			log.Info("views loaded from %s", viewResult.ResolvedPath)
-		} else if viewResult.Err != nil {
+		case viewResult.Err != nil:
 			log.Warn("views file %s could not be loaded: %v", viewResult.ResolvedPath, viewResult.Err)
-		} else {
+		default:
 			log.Debug("views file not found at %s, using built-in views only", viewResult.ResolvedPath)
 		}
 	}
@@ -187,7 +188,7 @@ func buildSpecCmd(reg *registry.Registry) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := entry.InvalidateCache(); err != nil {
+			if err = entry.InvalidateCache(); err != nil {
 				return fmt.Errorf("invalidate cache: %w", err)
 			}
 			if _, err = entry.LoadSpec(cmd.Context()); err != nil {

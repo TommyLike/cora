@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	defaultTimeout  = 30 * time.Second
-	maxRetries      = 2 // up to 3 total attempts
-	retryBaseDelay  = 500 * time.Millisecond
+	defaultTimeout = 30 * time.Second
+	maxRetries     = 2 // up to 3 total attempts
+	retryBaseDelay = 500 * time.Millisecond
 )
 
 // Request is the input to a single HTTP API call.
@@ -34,9 +34,9 @@ type Request struct {
 	PathParams   map[string]string // {id} → "123"
 	QueryParams  map[string]string
 	Body         map[string]interface{}
-	Format       string            // "table" | "json" | "yaml"
+	Format       string // "table" | "json" | "yaml"
 	DryRun       bool
-	ViewConfig   *view.ViewConfig  // nil → generic fallback rendering
+	ViewConfig   *view.ViewConfig // nil → generic fallback rendering
 }
 
 // Executor executes API requests against configured backend services.

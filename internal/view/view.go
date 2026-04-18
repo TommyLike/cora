@@ -21,13 +21,13 @@ const (
 
 // ViewColumn describes one output column (list mode) or one row (object mode).
 type ViewColumn struct {
-	Field    string       `yaml:"field"`     // dot-separated JSON path, e.g. "user.login"
-	Label    string       `yaml:"label"`     // table header / KV key; auto-derived when empty
-	Format   ColumnFormat `yaml:"format"`    // rendering mode; defaults to FormatText
-	Truncate int          `yaml:"truncate"`  // max rune count before "…" (0 = unlimited)
-	Width    int          `yaml:"width"`     // fixed column width in list mode (0 = auto)
-	DateFmt  string       `yaml:"date_fmt"`  // Go time format for FormatDate; default "2006-01-02"
-	Indent   bool         `yaml:"indent"`    // FormatJSON only: use indented pretty-print
+	Field    string       `yaml:"field"`    // dot-separated JSON path, e.g. "user.login"
+	Label    string       `yaml:"label"`    // table header / KV key; auto-derived when empty
+	Format   ColumnFormat `yaml:"format"`   // rendering mode; defaults to FormatText
+	Truncate int          `yaml:"truncate"` // max rune count before "…" (0 = unlimited)
+	Width    int          `yaml:"width"`    // fixed column width in list mode (0 = auto)
+	DateFmt  string       `yaml:"date_fmt"` // Go time format for FormatDate; default "2006-01-02"
+	Indent   bool         `yaml:"indent"`   // FormatJSON only: use indented pretty-print
 }
 
 // ViewConfig is the complete display configuration for one API operation.

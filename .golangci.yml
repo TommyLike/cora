@@ -1,0 +1,29 @@
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - gofmt
+    - misspell
+    - gocritic
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+  gocritic:
+    disabled-checks:
+      - hugeParam
+
+issues:
+  max-same-issues: 5
+  exclude-rules:
+    - path: "_test\\.go"
+      linters:
+        - gocritic
+        - errcheck

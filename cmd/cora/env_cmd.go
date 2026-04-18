@@ -49,11 +49,12 @@ func buildEnvCmd() *cobra.Command {
 			if foundDotenv != "" {
 				fmt.Printf("=== .env contents (%s) ===\n", foundDotenv)
 				envMap, err := godotenv.Read(foundDotenv)
-				if err != nil {
+				switch {
+				case err != nil:
 					fmt.Printf("  error reading: %v\n", err)
-				} else if len(envMap) == 0 {
+				case len(envMap) == 0:
 					fmt.Println("  (empty)")
-				} else {
+				default:
 					keys := make([]string, 0, len(envMap))
 					for k := range envMap {
 						keys = append(keys, k)
