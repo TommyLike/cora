@@ -1,6 +1,6 @@
 .idea
 bin/
-cora
+/cora
 
 # Local dev environment — never commit real credentials
 .env
