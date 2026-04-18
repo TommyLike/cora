@@ -109,12 +109,12 @@
 
 ### 4.3 关键设计决策
 
-| 问题 | 推荐方案 |
-|------|----------|
-| Gateway 还是服务验签？ | **Gateway 统一验签并注入 Header**，服务保持无感 |
-| 服务间调用身份传递？ | **Token Exchange (RFC 8693)** 或双令牌（用户 Token + 服务 Token） |
-| API Key 和用户 Token 如何统一？ | Gateway 层归一化，后端只认 Header，感知不到调用方是人还是程序 |
-| 服务身份怎么办？ | **SPIFFE/SPIRE** 做服务身份 + mTLS |
+| 问题                      | 推<br/>荐方案                                               |
+|-------------------------|---------------------------------------------------------|
+| Gateway 还是服务验签？         | **Gateway 统一验签并注入 Header**，服务保持无感                       |
+| 服务间调用身份传递？              | **Token Exchange (RFC 8693)** 或双令牌（用户 Token + 服务 Token） |
+| API Key 和用户 Token 如何统一？ | Gateway 层归一化，后端只认 Header，感知不到调用方是人还是程序                  |
+| 服务身份怎么办？                | **SPIFFE/SPIRE** 做服务身份 + mTLS                           |
 
 ---
 
@@ -285,15 +285,15 @@ Auth0/Okta + AWS API Gateway + Cedar
 
 ## 八、常见陷阱与对策
 
-| 陷阱 | 后果 | 对策 |
-|------|------|------|
-| 每个服务自己解析 JWT | 权限不统一、配置散落 | Gateway 统一验签 + 注入 Header |
-| 试图用 OPA 接管 OSS 内部权限 | 维护地狱、与 OSS 逻辑冲突 | OSS 保留自有权限模型，OPA 只管自研服务 |
-| 直接让 OSS 服务接受 JWT | 需要写/维护插件 | Gateway 凭据翻译 |
-| Admin API Key 分发给业务层 | 权限泄露风险 | 只放 Gateway，用 Vault 保护 |
-| Service A 拿用户 Token 调 B | 无法区分代理还是直连 | Token Exchange 或双令牌 |
-| 一次性上全量方案 | 周期长、落地风险高 | 按阶段 0→1→2→3 演进 |
-| JWT 永不过期 | 无法吊销 | 短期 JWT + Refresh Token |
+| 陷阱                      | 后果              | 对策                       |
+|-------------------------|-----------------|--------------------------|
+| 每个服务自己解析 JWT            | 权限不统一、配置散落      | Gateway 统一验签 + 注入 Header |
+| 试图用 OPA 接管 OSS 内部权限     | 维护地狱、与 OSS 逻辑冲突 | OSS 保留自有权限模型，OPA 只管自研服务  |
+| 直接让 OSS 服务接受 JWT        | 需要写/维护插件        | Gateway 凭据翻译             |
+| Admin API Key 分发给业务层    | 权限泄露风险          | 只放 Gateway，用 Vault 保护    |
+| Service A 拿用户 Token 调 B | 无法区分代理还是直连      | Token Exchange 或双令牌      |
+| 一次性上全量方案                | 周期长、落地风险高       | 按阶段 0→1→2→3 演进           |
+| JWT 永不过期                | 无法吊销            | 短期 JWT + Refresh Token   |
 
 ---
 
@@ -351,3 +351,92 @@ Auth0/Okta + AWS API Gateway + Cedar
 ---
 
 *文档整理自架构讨论，适用于 2026 年及之后的主流技术栈选型。*
+
+---
+
+## 十一、案例参考：Google Workspace CLI 的凭据管理实现
+
+> 基于 https://github.com/googleworkspace/cli 的源码分析（Rust 实现）。  
+> 对 Cora 这类 Go CLI 工具具有直接参考价值。
+
+### 11.1 整体架构
+
+Google Workspace CLI 采用 **"AES-256-GCM 加密文件 + OS Keyring 存密钥"** 的双层保护方案：
+
+```
+OAuth Token / 用户凭据
+        ↓ AES-256-GCM 加密
+~/.config/gws/credentials.enc      ← 加密后的凭据文件
+~/.config/gws/token_cache.json     ← 加密后的 Access Token 缓存
+
+加密密钥 (256-bit random key)
+        ↓ 存储位置由环境决定
+OS Keyring（macOS Keychain / Windows Credential Manager）
+  或
+~/.config/gws/.encryption_key      ← 0600 权限的本地密钥文件（CI/Docker fallback）
+```
+
+### 11.2 密钥管理策略
+
+这是 Google CLI 最值得借鉴的设计：**密钥不硬编码、不派生自密码，而是随机生成后存入 OS 密钥链**。
+
+**密钥解析优先级（`GOOGLE_WORKSPACE_CLI_KEYRING_BACKEND` 控制）**：
+
+| 平台              | 主路径                      | Fallback                           |
+|-----------------|--------------------------|------------------------------------|
+| macOS / Windows | OS 原生 Keyring            | 同步写一份本地文件备用                        |
+| Linux           | OS Keyring（可选）           | `~/.config/gws/.encryption_key` 文件 |
+| Docker / CI     | 直接使用文件（`--backend=file`） | 无                                  |
+
+**与"本地文件存密钥安全性一样"的区别**：
+- macOS Keychain：OS 访问控制，只有注册进程可读取，Secure Enclave 硬件保护
+- Windows Credential Manager：绑定用户登录会话，离线磁盘无法读取
+- Linux 文件：`0600` 权限 + 独立于凭据文件，相比凭据明文多一层攻击面分离
+
+### 11.3 加密实现细节
+
+```
+算法：AES-256-GCM（认证加密，防篡改）
+密钥：256-bit 随机数（非密码派生）
+Nonce：12-byte，每次加密随机生成
+格式：[12-byte nonce][ciphertext][16-byte GCM auth tag]
+```
+
+关键实现特性：
+- **`zeroize` crate**：密钥读入内存后，使用完毕立刻清零（防 heap dump）
+- **`OnceLock` 缓存**：进程生命周期内只从 Keyring/文件读一次密钥
+- **原子写文件**：`tempfile` + `fsync` + 原子 rename，防 TOCTOU 竞争
+
+### 11.4 凭据加载优先级链
+
+```
+1. GOOGLE_WORKSPACE_CLI_TOKEN          ← 环境变量（最高优先级，直接使用）
+2. GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE ← 环境变量（指向明文 JSON 文件路径）
+3. ~/.config/gws/credentials.enc       ← 加密凭据文件
+4. ~/.config/gws/credentials.json      ← 明文凭据文件（旧版兼容）
+5. GOOGLE_APPLICATION_CREDENTIALS      ← ADC 环境变量（Google SDK 标准）
+6. ~/.config/gcloud/application_default_credentials.json ← gcloud ADC
+```
+
+### 11.5 Token 缓存与刷新
+
+- **双层缓存**：内存中 `Arc<Mutex<HashMap>>` + 加密磁盘文件
+- **自动刷新**：集成 `yup-oauth2` 库，过期后自动用 Refresh Token 换新 Access Token
+- **解密失败处理**：自动删除损坏的缓存文件，降级到重新认证，不崩溃
+
+### 11.6 对 Cora 的借鉴建议
+
+| Google CLI 做法                              | Cora 当前状态          | 建议优先级                     |
+|--------------------------------------------|--------------------|---------------------------|
+| 凭据与配置文件分离（`~/.config/gws/credentials.enc`） | 凭据混在 `config.yaml` | ★★★ 高                     |
+| 多来源优先级链（env var > 文件 > ADC）                | 只支持 config.yaml    | ★★★ 高                     |
+| `cora auth status` 诊断命令                    | 无                  | ★★☆ 中                     |
+| OS Keyring 存密钥 + AES 加密凭据                  | 明文存储               | ★☆☆ 低（CLI 场景可接受）          |
+| Token 缓存（减少频繁换 token）                      | 无（每次调用都用配置中的 key）  | ★☆☆ 低（当前服务用 API Key，无需刷新） |
+
+**Cora 最值得先做的两件事**：
+
+1. **支持环境变量覆盖凭据**（`CORA_GITCODE_TOKEN` 等），方便 CI/自动化场景
+2. **`cora auth status` 命令**，展示各服务的认证状态（已配置/未配置/连通性）
+
+这两件事改动小、收益明显，AES 加密和 OS Keyring 集成可以后续按需评估。
