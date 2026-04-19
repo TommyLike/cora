@@ -427,6 +427,10 @@ Test files by package:
 | `internal/builder/command_test.go` | Resource/verb name derivation, flag mapping |
 | `internal/log/mask_test.go` | URL masking, header masking, body formatting |
 | `internal/output/formatter_test.go` | JSON/YAML/table output, view rendering, terminal safety |
+| `internal/smoke/loader_test.go`     | YAML scenario loading, defaults, empty-file skipping |
+| `internal/smoke/assertion_test.go`  | All 10 assertion type validations |
+| `internal/smoke/runner_test.go`     | Subprocess invocation, env var injection |
+| `internal/smoke/report_test.go`     | HTML report generation |
 
 ### Project Layout
 
@@ -467,6 +471,10 @@ cora/
 ├── config/
 │   ├── config.example.yaml           # Config file template
 │   └── views.example.yaml            # views.yaml template
+├── cmd/
+│   ├── cora/main.go                  # cora entry point
+│   └── smoke/main.go                 # Smoke Runner entry point
+├── scenarios/                        # Smoke test scenario YAML files
 ├── spec/                             # Architecture design documents
 ├── Makefile
 └── Dockerfile
@@ -510,6 +518,116 @@ cora/
 | 4 | Spec load failure |
 | 5 | Config error (service not configured, malformed config) |
 | 127 | Unclassified error |
+
+## Smoke Tests
+
+cora ships with an end-to-end smoke testing framework that continuously monitors service sub-command availability, catching broken APIs or unexpected output before they reach users.
+
+### How it works
+
+The Smoke Runner (`cmd/smoke`) reads YAML scenario files from the `scenarios/` directory, invokes the real `cora` binary for each one, and checks exit codes, stdout/stderr content, response time, and JSON fields. It then produces an HTML report. Empty files and comment-only files are silently skipped.
+
+### Scenario file format
+
+```yaml
+name: "GitCode · issues list"
+service: gitcode
+args:
+  - issues
+  - list
+  - --owner
+  - openeuler
+  - --repo
+  - infrastructure
+  - --state
+  - open
+format: table
+timeout_ms: 8000
+assertions:
+  - type: exit_code
+    value: 0
+  - type: response_time_lt
+    value: 5000
+  - type: stdout_not_empty
+  - type: stderr_not_contains
+    value: "ERROR"
+  - type: json_has_keys          # only meaningful with format: json
+    values: ["title", "state"]
+```
+
+**Supported assertion types:**
+
+| Type | Description |
+|------|-------------|
+| `exit_code` | Exit code equals the specified value |
+| `stdout_not_empty` | stdout is not empty |
+| `stderr_not_contains` | stderr does not contain the specified string |
+| `response_time_lt` | Response time (ms) is below the specified value |
+| `json_has_keys` | JSON output contains all specified top-level keys |
+| `json_key_not_empty` | The specified JSON key is not empty |
+| `table_has_columns` | Table output contains all specified column names |
+| `stdout_contains` | stdout contains the specified string |
+| `stderr_empty` | stderr is empty |
+| `exit_code_not` | Exit code is not equal to the specified value |
+
+### Configuration
+
+Copy the example config and fill in your credentials:
+
+```bash
+cp config/smoke-config.example.yaml config/smoke-config.yaml
+# Edit smoke-config.yaml with real tokens and URLs
+```
+
+Credentials can also be injected via environment variables. Scenario `args` support `${VAR}` substitution:
+
+```bash
+export SMOKE_GITCODE_TOKEN=glpat-xxxx
+```
+
+### Running
+
+```bash
+# Build the smoke runner and run all scenarios
+make smoke
+
+# Run only scenarios matching a keyword (filters by name)
+make smoke-filter FILTER=gitcode
+
+# Run manually with explicit flags
+./bin/smoke-runner \
+  --cora-bin ./bin/cora \
+  --config ./config/smoke-config.yaml \
+  --scenarios-dir ./scenarios \
+  --report-dir ./smoke-report
+```
+
+Reports are written to `smoke-report/<YYYY-MM-DD>/report.html`, archived by date.
+
+### CI integration
+
+The GitHub Actions workflow (`.github/workflows/smoke.yml`) runs smoke tests nightly at UTC 02:00 and also supports manual dispatch. The HTML report is uploaded as an artifact with a 90-day retention period, named `smoke-report-<YYYY-MM-DD>`.
+
+### Directory layout
+
+```
+scenarios/
+├── gitcode/
+│   ├── repos-list.yaml
+│   ├── issues-list.yaml
+│   └── issues-get.yaml
+├── forum/
+│   └── posts-list.yaml      # comment out to skip temporarily
+└── etherpad/
+    └── pad-list.yaml        # comment out to skip temporarily
+
+internal/smoke/
+├── types.go                 # Scenario, Assertion, Result type definitions
+├── loader.go                # YAML scenario loading; empty files auto-skipped
+├── assertion.go             # 10 assertion types
+├── runner.go                # Invokes cora binary with env var injection
+└── report.go                # Console output + HTML report generation
+```
 
 ## Architecture
 

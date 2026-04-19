@@ -420,6 +420,10 @@ make test-cover-text
 | `internal/builder/command_test.go`  | 资源名推导、动词解析、Flag 名转换             |
 | `internal/log/mask_test.go`         | URL 脱敏、请求头脱敏、响应体格式化             |
 | `internal/output/formatter_test.go` | JSON/YAML/Table 输出、View 渲染、终端安全 |
+| `internal/smoke/loader_test.go`     | YAML 场景加载、默认值、空文件跳过           |
+| `internal/smoke/assertion_test.go`  | 10 种断言逻辑验证                         |
+| `internal/smoke/runner_test.go`     | 子进程调用、环境变量注入                   |
+| `internal/smoke/report_test.go`     | HTML 报告生成                            |
 
 ### 项目目录结构
 
@@ -460,6 +464,10 @@ cora/
 ├── config/
 │   ├── config.example.yaml           # 配置文件示例
 │   └── views.example.yaml            # views.yaml 示例
+├── cmd/
+│   ├── cora/main.go                  # cora 主入口
+│   └── smoke/main.go                 # Smoke Runner 入口
+├── scenarios/                        # Smoke 测试场景 YAML 文件
 ├── spec/                             # 架构设计文档
 ├── Makefile
 └── Dockerfile
@@ -503,6 +511,116 @@ cora/
 | 4   | Spec 加载失败            |
 | 5   | 配置错误（服务未配置或配置文件损坏）   |
 | 127 | 未分类错误                |
+
+## Smoke 测试
+
+cora 内置了一套端对端 Smoke 测试框架，用于持续看护各服务子命令的可用性，防止接口不可用或输出异常被遗漏。
+
+### 工作原理
+
+Smoke Runner（`cmd/smoke`）读取 `scenarios/` 目录下的 YAML 场景文件，依次调用真实的 `cora` 二进制，检查退出码、stdout/stderr 内容、响应时间及 JSON 字段等多个维度，最终生成一份 HTML 报告。空文件或纯注释文件会被静默跳过。
+
+### 场景文件格式
+
+```yaml
+name: "GitCode · issues list"
+service: gitcode
+args:
+  - issues
+  - list
+  - --owner
+  - openeuler
+  - --repo
+  - infrastructure
+  - --state
+  - open
+format: table
+timeout_ms: 8000
+assertions:
+  - type: exit_code
+    value: 0
+  - type: response_time_lt
+    value: 5000
+  - type: stdout_not_empty
+  - type: stderr_not_contains
+    value: "ERROR"
+  - type: json_has_keys          # 仅 format: json 时有意义
+    values: ["title", "state"]
+```
+
+**支持的断言类型：**
+
+| 类型 | 说明 |
+|------|------|
+| `exit_code` | 退出码等于指定值 |
+| `stdout_not_empty` | stdout 非空 |
+| `stderr_not_contains` | stderr 不包含指定字符串 |
+| `response_time_lt` | 响应时间（毫秒）低于指定值 |
+| `json_has_keys` | JSON 输出包含所有指定顶层键 |
+| `json_key_not_empty` | JSON 指定键值非空 |
+| `table_has_columns` | 表格输出包含所有指定列名 |
+| `stdout_contains` | stdout 包含指定字符串 |
+| `stderr_empty` | stderr 为空 |
+| `exit_code_not` | 退出码不等于指定值 |
+
+### 配置
+
+复制示例配置并填写凭证：
+
+```bash
+cp config/smoke-config.example.yaml config/smoke-config.yaml
+# 编辑 smoke-config.yaml，填入实际 token 和 URL
+```
+
+各服务的凭证也可通过环境变量注入，场景文件的 `args` 中可使用 `${VAR}` 占位符：
+
+```bash
+export SMOKE_GITCODE_TOKEN=glpat-xxxx
+```
+
+### 运行
+
+```bash
+# 构建 smoke-runner 并运行全部场景
+make smoke
+
+# 只运行包含关键字的场景（按 name 过滤）
+make smoke-filter FILTER=gitcode
+
+# 手动运行，指定各参数
+./bin/smoke-runner \
+  --cora-bin ./bin/cora \
+  --config ./config/smoke-config.yaml \
+  --scenarios-dir ./scenarios \
+  --report-dir ./smoke-report
+```
+
+报告默认输出到 `smoke-report/<YYYY-MM-DD>/report.html`，按日期归档。
+
+### CI 集成
+
+GitHub Actions 配置（`.github/workflows/smoke.yml`）每晚 UTC 02:00 自动运行 Smoke 测试，也支持手动触发。HTML 报告作为 Artifact 上传，保留 90 天，名称格式为 `smoke-report-<YYYY-MM-DD>`。
+
+### 目录结构
+
+```
+scenarios/
+├── gitcode/
+│   ├── repos-list.yaml
+│   ├── issues-list.yaml
+│   └── issues-get.yaml
+├── forum/
+│   └── posts-list.yaml      # 可注释掉暂时跳过
+└── etherpad/
+    └── pad-list.yaml        # 可注释掉暂时跳过
+
+internal/smoke/
+├── types.go                 # Scenario、Assertion、Result 类型定义
+├── loader.go                # YAML 场景加载，空文件自动跳过
+├── assertion.go             # 10 种断言逻辑
+├── runner.go                # 调用 cora 二进制，注入环境变量
+└── report.go                # 控制台输出 + HTML 报告生成
+```
 
 ## 架构文档
 
