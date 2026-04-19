@@ -74,6 +74,10 @@ func (r *Runner) Run(s Scenario) ScenarioResult {
 		args = append(args, "--verbose")
 	}
 
+	if r.verbose {
+		fmt.Printf("  [cmd] %s %s\n", r.coraBin, strings.Join(args, " "))
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.TimeoutMs)*time.Millisecond)
 	defer cancel()
 
