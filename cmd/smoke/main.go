@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cncf/cora/internal/smoke"
-	"gopkg.in/yaml.v3"
 )
 
 func main() {
@@ -26,7 +25,6 @@ func run() error {
 	reportDir := flag.String("report-dir", "./smoke-report", "directory to write report.html into")
 	filter := flag.String("filter", "", "only run scenarios whose name or service contains this string")
 	verbose := flag.Bool("verbose", false, "print stdout/stderr for every scenario, not just failures")
-	viewsFile := flag.String("views", "", "path to views.yaml for view_columns_match assertions (optional)")
 	flag.Parse()
 
 	// Verify cora binary exists.
@@ -68,15 +66,8 @@ func run() error {
 
 	fmt.Printf("Running %d scenario(s)...\n\n", len(scenarios))
 
-	// Resolve views file: explicit flag takes priority; fallback to views_file
-	// declared in the cora config YAML so users don't need to pass --views separately.
-	resolvedViews := *viewsFile
-	if resolvedViews == "" {
-		resolvedViews = viewsFileFromConfig(*configPath)
-	}
-
 	// Execute all scenarios.
-	runner := smoke.NewRunner(*coraBin, expandedConfig, *verbose, resolvedViews)
+	runner := smoke.NewRunner(*coraBin, expandedConfig, *verbose)
 	report := runner.RunAll(scenarios, *configPath)
 
 	// Print live results.
@@ -136,22 +127,6 @@ func expandConfigEnvVars(configPath string) (string, error) {
 		return "", err
 	}
 	return tmp.Name(), nil
-}
-
-// viewsFileFromConfig reads only the views_file field from a cora config YAML.
-// Returns "" when the file is absent, unreadable, or the field is not set.
-func viewsFileFromConfig(configPath string) string {
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return ""
-	}
-	var cfg struct {
-		ViewsFile string `yaml:"views_file"`
-	}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return ""
-	}
-	return cfg.ViewsFile
 }
 
 // containsCI reports whether s contains sub, case-insensitively.

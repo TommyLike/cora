@@ -1,22 +1,10 @@
 package smoke
 
-import (
-	"strings"
-	"testing"
-
-	"github.com/cncf/cora/internal/view"
-)
-
-var noCtx = EvalContext{}
+import "testing"
 
 func eval(t *testing.T, a Assertion, stdout, stderr string, exitCode int, durationMs int64) AssertionResult {
 	t.Helper()
-	return EvaluateAssertion(a, noCtx, stdout, stderr, exitCode, durationMs)
-}
-
-func evalCtx(t *testing.T, a Assertion, ctx EvalContext, stdout, stderr string, exitCode int, durationMs int64) AssertionResult {
-	t.Helper()
-	return EvaluateAssertion(a, ctx, stdout, stderr, exitCode, durationMs)
+	return EvaluateAssertion(a, stdout, stderr, exitCode, durationMs)
 }
 
 func assertPass(t *testing.T, ar AssertionResult) {
@@ -137,101 +125,4 @@ func TestAssertion_JSONKeyNotEmpty_Fail_Null(t *testing.T) {
 func TestAssertion_UnknownType_Fail(t *testing.T) {
 	ar := eval(t, Assertion{Type: "nonexistent_type"}, "", "", 0, 0)
 	assertFail(t, ar)
-}
-
-// ── view_columns_match ────────────────────────────────────────────────────────
-
-const sampleTable = "" +
-	"+--------+-------+-------+\n" +
-	"| NUMBER | TITLE | STATE |\n" +
-	"+--------+-------+-------+\n" +
-	"| 1      | foo   | open  |\n" +
-	"| 2      | bar   | closed|\n" +
-	"+--------+-------+-------+\n"
-
-func makeViewRegistry(service, opKey string, cols []view.ViewColumn) *view.Registry {
-	reg := view.NewRegistry()
-	reg.Register(service, opKey, view.ViewConfig{Columns: cols})
-	return reg
-}
-
-func tableCtx(reg *view.Registry) EvalContext {
-	return EvalContext{ViewRegistry: reg, Service: "gitcode", Resource: "issues", Verb: "list", Format: "table"}
-}
-
-func TestAssertion_ViewColumnsMatch_Pass(t *testing.T) {
-	reg := makeViewRegistry("gitcode", "issues/list", []view.ViewColumn{
-		{Field: "number", Label: "Number"},
-		{Field: "title", Label: "Title"},
-		{Field: "state"},
-	})
-	assertPass(t, evalCtx(t, Assertion{Type: "view_columns_match"}, tableCtx(reg), sampleTable, "", 0, 0))
-}
-
-func TestAssertion_ViewColumnsMatch_WrongFormat(t *testing.T) {
-	reg := makeViewRegistry("gitcode", "issues/list", []view.ViewColumn{{Field: "title"}})
-	ctx := EvalContext{ViewRegistry: reg, Service: "gitcode", Resource: "issues", Verb: "list", Format: "json"}
-	ar := evalCtx(t, Assertion{Type: "view_columns_match"}, ctx, "{}", "", 0, 0)
-	assertFail(t, ar)
-	if !strings.Contains(ar.Message, "format=table") {
-		t.Errorf("expected format error, got: %s", ar.Message)
-	}
-}
-
-func TestAssertion_ViewColumnsMatch_MissingColumn(t *testing.T) {
-	// Table only has NUMBER and TITLE, view also expects STATE
-	table := "+--------+-------+\n| NUMBER | TITLE |\n+--------+-------+\n| 1      | foo   |\n+--------+-------+\n"
-	reg := makeViewRegistry("gitcode", "issues/list", []view.ViewColumn{
-		{Field: "number", Label: "Number"},
-		{Field: "title", Label: "Title"},
-		{Field: "state"},
-	})
-	ar := evalCtx(t, Assertion{Type: "view_columns_match"}, tableCtx(reg), table, "", 0, 0)
-	assertFail(t, ar)
-	if !strings.Contains(ar.Message, "missing columns") {
-		t.Errorf("expected missing-columns message, got: %s", ar.Message)
-	}
-}
-
-func TestAssertion_ViewColumnsMatch_AllEmptyValues(t *testing.T) {
-	// Title column exists in header but all rows have empty title
-	table := "+--------+-------+-------+\n| NUMBER | TITLE | STATE |\n+--------+-------+-------+\n| 1      |       | open  |\n| 2      |       | closed|\n+--------+-------+-------+\n"
-	reg := makeViewRegistry("gitcode", "issues/list", []view.ViewColumn{
-		{Field: "number", Label: "Number"},
-		{Field: "title", Label: "Title"},
-	})
-	ar := evalCtx(t, Assertion{Type: "view_columns_match"}, tableCtx(reg), table, "", 0, 0)
-	assertFail(t, ar)
-	if !strings.Contains(ar.Message, "all-empty values") {
-		t.Errorf("expected all-empty-values message, got: %s", ar.Message)
-	}
-}
-
-func TestAssertion_ViewColumnsMatch_NoDataRows_Pass(t *testing.T) {
-	// Empty result set: header-only table, value check skipped
-	table := "+--------+-------+-------+\n| NUMBER | TITLE | STATE |\n+--------+-------+-------+\n+--------+-------+-------+\n"
-	reg := makeViewRegistry("gitcode", "issues/list", []view.ViewColumn{
-		{Field: "number", Label: "Number"},
-		{Field: "title", Label: "Title"},
-		{Field: "state"},
-	})
-	assertPass(t, evalCtx(t, Assertion{Type: "view_columns_match"}, tableCtx(reg), table, "", 0, 0))
-}
-
-func TestAssertion_ViewColumnsMatch_NoRegistry(t *testing.T) {
-	ctx := EvalContext{ViewRegistry: nil, Service: "gitcode", Resource: "issues", Verb: "list", Format: "table"}
-	assertFail(t, evalCtx(t, Assertion{Type: "view_columns_match"}, ctx, sampleTable, "", 0, 0))
-}
-
-func TestAssertion_ViewColumnsMatch_NoViewDefined(t *testing.T) {
-	reg := view.NewRegistry()
-	assertFail(t, evalCtx(t, Assertion{Type: "view_columns_match"}, tableCtx(reg), sampleTable, "", 0, 0))
-}
-
-func TestAssertion_ViewColumnsMatch_LabelDerivedFromField(t *testing.T) {
-	reg := makeViewRegistry("gitcode", "issues/list", []view.ViewColumn{
-		{Field: "number"}, // derived → "Number"
-		{Field: "title"},  // derived → "Title"
-	})
-	assertPass(t, evalCtx(t, Assertion{Type: "view_columns_match"}, tableCtx(reg), sampleTable, "", 0, 0))
 }
