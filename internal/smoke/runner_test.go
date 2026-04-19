@@ -43,7 +43,7 @@ func main() {
 
 func TestRunner_SkipScenario(t *testing.T) {
 	s := Scenario{Name: "skip me", Skip: true, SkipReason: "not ready"}
-	r := NewRunner("", "")
+	r := NewRunner("", "", false)
 	result := r.Run(s)
 	if result.Status != StatusSkip {
 		t.Errorf("expected SKIP, got %s", result.Status)
@@ -63,7 +63,7 @@ func TestRunner_SuccessCapture(t *testing.T) {
 			{Type: "stdout_contains", Str: "TITLE"},
 		},
 	}
-	r := NewRunner(bin, "")
+	r := NewRunner(bin, "", false)
 	result := r.Run(s)
 	if result.Status != StatusPass {
 		t.Errorf("expected PASS, got %s: %s", result.Status, result.Err)
@@ -88,7 +88,7 @@ func TestRunner_NonZeroExit_AssertionFails(t *testing.T) {
 			{Type: "exit_code", Value: 0},
 		},
 	}
-	r := NewRunner(bin, "")
+	r := NewRunner(bin, "", false)
 	result := r.Run(s)
 	if result.Status != StatusFail {
 		t.Errorf("expected FAIL, got %s", result.Status)
@@ -105,7 +105,7 @@ func TestRunner_StderrCaptured(t *testing.T) {
 		Format: "table", TimeoutMs: 5000,
 		Assertions: []Assertion{{Type: "exit_code", Value: 1}},
 	}
-	r := NewRunner(bin, "")
+	r := NewRunner(bin, "", false)
 	result := r.Run(s)
 	if result.Stderr == "" {
 		t.Error("expected stderr to be captured")
@@ -121,7 +121,7 @@ func main() { time.Sleep(10 * time.Second) }`)
 		Format: "table", TimeoutMs: 200,
 		Assertions: []Assertion{{Type: "exit_code", Value: 0}},
 	}
-	r := NewRunner(bin, "")
+	r := NewRunner(bin, "", false)
 	result := r.Run(s)
 	if result.Status != StatusTimeout {
 		t.Errorf("expected TIMEOUT, got %s", result.Status)

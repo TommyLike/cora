@@ -67,7 +67,7 @@ func run() error {
 	fmt.Printf("Running %d scenario(s)...\n\n", len(scenarios))
 
 	// Execute all scenarios.
-	runner := smoke.NewRunner(*coraBin, expandedConfig)
+	runner := smoke.NewRunner(*coraBin, expandedConfig, *verbose)
 	report := runner.RunAll(scenarios, *configPath)
 
 	// Print live results.

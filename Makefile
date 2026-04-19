@@ -99,7 +99,8 @@ smoke: build-prod smoke-build
 		--cora-bin ./bin/cora \
 		--config ./config/smoke-config.yaml \
 		--scenarios-dir ./scenarios \
-		--report-dir ./smoke-report
+		--report-dir ./smoke-report \
+		--verbose
 	@echo "Report: ./smoke-report/report.html"
 
 .PHONY: smoke-filter

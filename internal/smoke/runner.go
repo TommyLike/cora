@@ -13,11 +13,12 @@ import (
 type Runner struct {
 	coraBin    string // path to cora binary
 	configPath string // expanded config file path (may be empty)
+	verbose    bool   // pass --verbose to every cora invocation
 }
 
 // NewRunner creates a Runner. configPath may be "" to skip CORA_CONFIG injection.
-func NewRunner(coraBin, configPath string) *Runner {
-	return &Runner{coraBin: coraBin, configPath: configPath}
+func NewRunner(coraBin, configPath string, verbose bool) *Runner {
+	return &Runner{coraBin: coraBin, configPath: configPath, verbose: verbose}
 }
 
 // Run executes a single Scenario and returns its result.
@@ -35,9 +36,12 @@ func (r *Runner) Run(s Scenario) ScenarioResult {
 		expandedArgs[i] = os.ExpandEnv(arg)
 	}
 
-	// Build command: <service> <args...> --format <format>
+	// Build command: <service> <args...> --format <format> [--verbose]
 	args := append([]string{s.Service}, expandedArgs...)
 	args = append(args, "--format", s.Format)
+	if r.verbose {
+		args = append(args, "--verbose")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(s.TimeoutMs)*time.Millisecond)
 	defer cancel()
