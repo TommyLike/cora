@@ -4,9 +4,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"gopkg.in/yaml.v3"
 )
+
+// namePattern enforces the scenario naming convention:
+// lowercase letters, digits, hyphens, dots and forward slashes only.
+// Format: <service>/<resource>-<verb>, e.g. "gitcode/issues-list".
+// Spaces and special characters are rejected so names are safe to use as
+// CLI filter arguments without quoting.
+var namePattern = regexp.MustCompile(`^[a-z][a-z0-9\-./]*$`)
 
 // LoadScenarios walks dir recursively and parses all *.yaml files as Scenarios.
 // Returns an error if any file fails validation.
@@ -62,6 +70,13 @@ func loadFile(path string) (Scenario, bool, error) {
 	}
 	if s.Service == "" {
 		return Scenario{}, false, fmt.Errorf("missing required field: service")
+	}
+	// Enforce naming convention: lowercase, no spaces, safe for CLI filter args.
+	if !namePattern.MatchString(s.Name) {
+		return Scenario{}, false, fmt.Errorf(
+			"invalid scenario name %q: must match %s (e.g. \"gitcode/issues-list\")",
+			s.Name, namePattern,
+		)
 	}
 	return s, false, nil
 }

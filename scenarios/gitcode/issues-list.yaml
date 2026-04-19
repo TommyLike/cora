@@ -1,12 +1,12 @@
-name: "GitCode · issues list (table)"
+name: "gitcode/issues-list"
 service: gitcode
 args:
   - issues
   - list
   - --owner
-  - ${SMOKE_GITCODE_OWNER}
+  - openeuler
   - --repo
-  - ${SMOKE_GITCODE_REPO}
+  - infrastructure
   - --state
   - open
 format: table

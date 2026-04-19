@@ -1,10 +1,10 @@
-name: "GitCode · repos list (table)"
+name: "gitcode/repos-list"
 service: gitcode
 args:
-  - repos
-  - list
-  - --owner
-  - ${SMOKE_GITCODE_OWNER}
+  - organizations
+  - list-org-repos
+  - --org
+  - openeuler
 format: table
 timeout_ms: 8000
 assertions:

@@ -1,14 +1,14 @@
-name: "GitCode · issues get (JSON)"
+name: "gitcode/issues-get"
 service: gitcode
 args:
   - issues
   - get
   - --owner
-  - ${SMOKE_GITCODE_OWNER}
+  - openeuler
   - --repo
-  - ${SMOKE_GITCODE_REPO}
+  - infrastructure
   - --number
-  - ${SMOKE_GITCODE_ISSUE_NUMBER}
+  - 404
 format: json
 timeout_ms: 5000
 assertions:
