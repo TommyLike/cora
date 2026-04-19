@@ -122,6 +122,7 @@ func (r *Runner) Run(s Scenario) ScenarioResult {
 		Service:      s.Service,
 		Resource:     resource,
 		Verb:         verb,
+		Format:       s.Format,
 	}
 	allPass := true
 	for _, a := range s.Assertions {
