@@ -89,8 +89,11 @@ docker-run:
 
 SMOKE_RUNNER := bin/smoke-runner
 
+SMOKE_VERBOSE ?= true
+
 .PHONY: smoke-build
 smoke-build:
+	@mkdir -p bin
 	go build -o $(SMOKE_RUNNER) ./cmd/smoke
 
 .PHONY: smoke
@@ -100,7 +103,7 @@ smoke: build-prod smoke-build
 		--config ./config/smoke-config.yaml \
 		--scenarios-dir ./scenarios \
 		--report-dir ./smoke-report \
-		--verbose
+		$(if $(filter true,$(SMOKE_VERBOSE)),--verbose)
 	@echo "Report: ./smoke-report/report.html"
 
 .PHONY: smoke-filter
@@ -109,7 +112,8 @@ smoke-filter: build-prod smoke-build
 		--cora-bin ./bin/cora \
 		--config ./config/smoke-config.yaml \
 		--scenarios-dir ./scenarios \
-		--filter "$(FILTER)"
+		--filter "$(FILTER)" \
+		$(if $(filter true,$(SMOKE_VERBOSE)),--verbose)
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 
