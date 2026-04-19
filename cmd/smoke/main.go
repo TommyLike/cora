@@ -25,6 +25,7 @@ func run() error {
 	reportDir := flag.String("report-dir", "./smoke-report", "directory to write report.html into")
 	filter := flag.String("filter", "", "only run scenarios whose name or service contains this string")
 	verbose := flag.Bool("verbose", false, "print stdout/stderr for every scenario, not just failures")
+	viewsFile := flag.String("views", "", "path to views.yaml for view_columns_match assertions (optional)")
 	flag.Parse()
 
 	// Verify cora binary exists.
@@ -67,7 +68,7 @@ func run() error {
 	fmt.Printf("Running %d scenario(s)...\n\n", len(scenarios))
 
 	// Execute all scenarios.
-	runner := smoke.NewRunner(*coraBin, expandedConfig, *verbose)
+	runner := smoke.NewRunner(*coraBin, expandedConfig, *verbose, *viewsFile)
 	report := runner.RunAll(scenarios, *configPath)
 
 	// Print live results.

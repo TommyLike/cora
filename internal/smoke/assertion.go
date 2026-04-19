@@ -4,10 +4,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/cncf/cora/internal/view"
 )
 
+// EvalContext carries scenario-level metadata needed by assertions that look
+// beyond raw stdout/stderr (e.g. view_columns_match).
+type EvalContext struct {
+	ViewRegistry *view.Registry // nil when --views was not provided
+	Service      string
+	Resource     string // first non-flag arg, e.g. "issues"
+	Verb         string // second non-flag arg, e.g. "list"
+}
+
 // EvaluateAssertion checks one Assertion against captured execution output.
-func EvaluateAssertion(a Assertion, stdout, stderr string, exitCode int, durationMs int64) AssertionResult {
+func EvaluateAssertion(a Assertion, ctx EvalContext, stdout, stderr string, exitCode int, durationMs int64) AssertionResult {
 	res := AssertionResult{Assertion: a}
 	switch a.Type {
 	case "exit_code":
@@ -126,6 +137,35 @@ func EvaluateAssertion(a Assertion, stdout, stderr string, exitCode int, duratio
 			res.Passed = true
 		}
 
+	case "view_columns_match":
+		res.Actual = truncStr(tableHeader(stdout), 120)
+		if ctx.ViewRegistry == nil {
+			res.Message = "no view registry configured; pass --views flag to smoke runner"
+			return res
+		}
+		if ctx.Resource == "" || ctx.Verb == "" {
+			res.Message = "cannot derive resource/verb from scenario args (need at least 2 positional args)"
+			return res
+		}
+		cfg := ctx.ViewRegistry.Lookup(ctx.Service, ctx.Resource, ctx.Verb)
+		if cfg == nil {
+			res.Message = fmt.Sprintf("no view defined for %s/%s/%s; add column definitions to views.yaml", ctx.Service, ctx.Resource, ctx.Verb)
+			return res
+		}
+		header := tableHeader(stdout)
+		var missing []string
+		for _, col := range cfg.Columns {
+			label := view.LabelFor(col)
+			if !strings.Contains(strings.ToUpper(header), strings.ToUpper(label)) {
+				missing = append(missing, label)
+			}
+		}
+		if len(missing) == 0 {
+			res.Passed = true
+		} else {
+			res.Message = fmt.Sprintf("columns from view missing in output: %s", strings.Join(missing, ", "))
+		}
+
 	default:
 		res.Message = fmt.Sprintf("unknown assertion type: %q", a.Type)
 	}
@@ -155,6 +195,8 @@ func AssertionDesc(a Assertion) string {
 		return fmt.Sprintf("JSON has keys: %s", strings.Join(a.Values, ", "))
 	case "json_key_not_empty":
 		return fmt.Sprintf("JSON[%q] is not empty", a.Str)
+	case "view_columns_match":
+		return "all view-defined columns present in table output"
 	default:
 		return fmt.Sprintf("unknown(%s)", a.Type)
 	}

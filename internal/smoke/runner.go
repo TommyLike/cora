@@ -6,19 +6,50 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
+
+	"github.com/cncf/cora/internal/view"
 )
 
 // Runner executes scenarios by invoking the cora binary as a subprocess.
 type Runner struct {
-	coraBin    string // path to cora binary
-	configPath string // expanded config file path (may be empty)
-	verbose    bool   // pass --verbose to every cora invocation
+	coraBin    string         // path to cora binary
+	configPath string         // expanded config file path (may be empty)
+	verbose    bool           // pass --verbose to every cora invocation
+	viewReg    *view.Registry // may be nil when --views not provided
 }
 
 // NewRunner creates a Runner. configPath may be "" to skip CORA_CONFIG injection.
-func NewRunner(coraBin, configPath string, verbose bool) *Runner {
-	return &Runner{coraBin: coraBin, configPath: configPath, verbose: verbose}
+// viewsFile is the path to views.yaml; pass "" to skip view-column validation.
+func NewRunner(coraBin, configPath string, verbose bool, viewsFile string) *Runner {
+	var reg *view.Registry
+	if viewsFile != "" {
+		reg = view.LoadRegistry(viewsFile).Registry
+	}
+	return &Runner{coraBin: coraBin, configPath: configPath, verbose: verbose, viewReg: reg}
+}
+
+// resourceVerb extracts the first two positional (non-flag) args from a scenario's
+// arg list. These correspond to the CLI resource and verb, e.g. ["issues", "list"].
+func resourceVerb(args []string) (resource, verb string) {
+	pos := 0
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+		switch pos {
+		case 0:
+			resource = a
+		case 1:
+			verb = a
+		}
+		pos++
+		if pos == 2 {
+			break
+		}
+	}
+	return
 }
 
 // Run executes a single Scenario and returns its result.
@@ -81,9 +112,16 @@ func (r *Runner) Run(s Scenario) ScenarioResult {
 	}
 
 	// Evaluate assertions.
+	resource, verb := resourceVerb(s.Args)
+	evalCtx := EvalContext{
+		ViewRegistry: r.viewReg,
+		Service:      s.Service,
+		Resource:     resource,
+		Verb:         verb,
+	}
 	allPass := true
 	for _, a := range s.Assertions {
-		ar := EvaluateAssertion(a, result.Stdout, result.Stderr, result.ExitCode, result.DurationMs)
+		ar := EvaluateAssertion(a, evalCtx, result.Stdout, result.Stderr, result.ExitCode, result.DurationMs)
 		result.AssertionResults = append(result.AssertionResults, ar)
 		if !ar.Passed {
 			allPass = false

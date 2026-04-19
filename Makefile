@@ -101,6 +101,7 @@ smoke: build-prod smoke-build
 		--config ./config/smoke-config.yaml \
 		--scenarios-dir ./scenarios \
 		--report-dir ./smoke-report \
+		$(if $(VIEWS),--views $(VIEWS)) \
 		$(if $(VERBOSE),--verbose)
 	@echo "Report: ./smoke-report/report.html"
 
@@ -111,6 +112,7 @@ smoke-filter: build-prod smoke-build
 		--config ./config/smoke-config.yaml \
 		--scenarios-dir ./scenarios \
 		--filter "$(FILTER)" \
+		$(if $(VIEWS),--views $(VIEWS)) \
 		$(if $(VERBOSE),--verbose)
 
 # ── Help ──────────────────────────────────────────────────────────────────────
