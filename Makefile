@@ -85,6 +85,31 @@ docker-run:
 		-v ./config.example.yaml:/root/.config/cora/config.yaml:ro \
 		$(IMAGE):latest $(ARGS)
 
+# ── Smoke Tests ───────────────────────────────────────────────────────────────
+
+SMOKE_RUNNER := bin/smoke-runner
+
+.PHONY: smoke-build
+smoke-build:
+	go build -o $(SMOKE_RUNNER) ./cmd/smoke
+
+.PHONY: smoke
+smoke: build-prod smoke-build
+	./$(SMOKE_RUNNER) \
+		--cora-bin ./bin/cora \
+		--config ./config/smoke-config.yaml \
+		--scenarios-dir ./scenarios \
+		--report-dir ./smoke-report
+	@echo "Report: ./smoke-report/report.html"
+
+.PHONY: smoke-filter
+smoke-filter: build-prod smoke-build
+	./$(SMOKE_RUNNER) \
+		--cora-bin ./bin/cora \
+		--config ./config/smoke-config.yaml \
+		--scenarios-dir ./scenarios \
+		--filter "$(FILTER)"
+
 # ── Help ──────────────────────────────────────────────────────────────────────
 
 .PHONY: help
@@ -107,6 +132,11 @@ help:
 	@echo "  lint           Run golangci-lint"
 	@echo "  fmt            Format code (gofmt + goimports)"
 	@echo "  vet            Run go vet"
+	@echo ""
+	@echo "Smoke Tests:"
+	@echo "  smoke-build    Build smoke-runner binary"
+	@echo "  smoke          Run all smoke scenarios (requires SMOKE_* env vars)"
+	@echo "  smoke-filter   Run filtered scenarios: make smoke-filter FILTER=gitcode"
 	@echo ""
 	@echo "Dependencies:"
 	@echo "  deps           Download modules"

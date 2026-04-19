@@ -1,0 +1,49 @@
+name: Smoke Tests
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # Daily at UTC 02:00
+  workflow_dispatch:       # Allow manual trigger from the Actions UI
+
+jobs:
+  smoke:
+    name: Smoke Test
+    runs-on: ubuntu-latest  # Switch to self-hosted if test environment is on an internal network
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build cora and smoke-runner
+        run: |
+          make build-prod
+          go build -o bin/smoke-runner ./cmd/smoke
+
+      - name: Run smoke tests
+        env:
+          SMOKE_GITCODE_TOKEN: ${{ secrets.SMOKE_GITCODE_TOKEN }}
+          SMOKE_GITCODE_OWNER: ${{ secrets.SMOKE_GITCODE_OWNER }}
+          SMOKE_GITCODE_REPO: ${{ secrets.SMOKE_GITCODE_REPO }}
+          SMOKE_GITCODE_ISSUE_NUMBER: ${{ secrets.SMOKE_GITCODE_ISSUE_NUMBER }}
+          SMOKE_FORUM_URL: ${{ secrets.SMOKE_FORUM_URL }}
+          SMOKE_FORUM_API_KEY: ${{ secrets.SMOKE_FORUM_API_KEY }}
+          SMOKE_FORUM_USERNAME: ${{ secrets.SMOKE_FORUM_USERNAME }}
+          SMOKE_ETHERPAD_URL: ${{ secrets.SMOKE_ETHERPAD_URL }}
+          SMOKE_ETHERPAD_API_KEY: ${{ secrets.SMOKE_ETHERPAD_API_KEY }}
+        run: |
+          ./bin/smoke-runner \
+            --cora-bin ./bin/cora \
+            --config ./config/smoke-config.yaml \
+            --scenarios-dir ./scenarios \
+            --report-dir ./smoke-report
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        if: always()   # Upload even when smoke tests fail so failures can be reviewed
+        with:
+          name: smoke-report-${{ github.run_id }}
+          path: smoke-report/report.html
+          retention-days: 30
