@@ -172,6 +172,34 @@ assertions:
 	}
 }
 
+func TestLoad_EmptyFile_Skipped(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "empty.yaml"), "")
+	scenarios, err := LoadScenarios(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(scenarios) != 0 {
+		t.Errorf("expected 0 scenarios, got %d", len(scenarios))
+	}
+}
+
+func TestLoad_CommentsOnly_Skipped(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "comments.yaml"), `
+# name: "disabled"
+# service: etherpad
+# skip: true
+`)
+	scenarios, err := LoadScenarios(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(scenarios) != 0 {
+		t.Errorf("expected 0 scenarios, got %d", len(scenarios))
+	}
+}
+
 func TestLoad_FilePath_Populated(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "s.yaml")

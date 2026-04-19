@@ -19,9 +19,12 @@ func LoadScenarios(dir string) ([]Scenario, error) {
 		if d.IsDir() || filepath.Ext(path) != ".yaml" {
 			return nil
 		}
-		s, err := loadFile(path)
+		s, skip, err := loadFile(path)
 		if err != nil {
 			return fmt.Errorf("load %s: %w", path, err)
+		}
+		if skip {
+			return nil
 		}
 		scenarios = append(scenarios, s)
 		return nil
@@ -29,14 +32,21 @@ func LoadScenarios(dir string) ([]Scenario, error) {
 	return scenarios, err
 }
 
-func loadFile(path string) (Scenario, error) {
+// loadFile parses one YAML file. The second return value is true when the file
+// is empty or contains only comments and should be silently skipped.
+func loadFile(path string) (Scenario, bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Scenario{}, err
+		return Scenario{}, false, err
 	}
 	var s Scenario
 	if err := yaml.Unmarshal(data, &s); err != nil {
-		return Scenario{}, fmt.Errorf("parse YAML: %w", err)
+		return Scenario{}, false, fmt.Errorf("parse YAML: %w", err)
+	}
+	// Empty file or pure-comment file: yaml.Unmarshal produces a zero Scenario.
+	// Silently skip rather than error.
+	if s.Name == "" && s.Service == "" {
+		return Scenario{}, true, nil
 	}
 	// Apply defaults.
 	if s.Format == "" {
@@ -48,10 +58,10 @@ func loadFile(path string) (Scenario, error) {
 	s.FilePath = path
 	// Validate required fields.
 	if s.Name == "" {
-		return Scenario{}, fmt.Errorf("missing required field: name")
+		return Scenario{}, false, fmt.Errorf("missing required field: name")
 	}
 	if s.Service == "" {
-		return Scenario{}, fmt.Errorf("missing required field: service")
+		return Scenario{}, false, fmt.Errorf("missing required field: service")
 	}
-	return s, nil
+	return s, false, nil
 }
