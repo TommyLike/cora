@@ -1,0 +1,21 @@
+name: "GitCode · issues list (table)"
+service: gitcode
+args:
+  - issues
+  - list
+  - --owner
+  - ${SMOKE_GITCODE_OWNER}
+  - --repo
+  - ${SMOKE_GITCODE_REPO}
+  - --state
+  - open
+format: table
+timeout_ms: 8000
+assertions:
+  - type: exit_code
+    value: 0
+  - type: response_time_lt
+    value: 5000
+  - type: stdout_not_empty
+  - type: stderr_not_contains
+    value: "ERROR"

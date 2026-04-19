@@ -1,0 +1,20 @@
+name: "GitCode · issues get (JSON)"
+service: gitcode
+args:
+  - issues
+  - get
+  - --owner
+  - ${SMOKE_GITCODE_OWNER}
+  - --repo
+  - ${SMOKE_GITCODE_REPO}
+  - --number
+  - ${SMOKE_GITCODE_ISSUE_NUMBER}
+format: json
+timeout_ms: 5000
+assertions:
+  - type: exit_code
+    value: 0
+  - type: json_has_keys
+    values: ["title", "state", "number"]
+  - type: json_key_not_empty
+    key: "title"

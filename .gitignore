@@ -8,3 +8,7 @@ coverage.out
 coverage.html
 config/config.yaml
 config/views.yaml
+config/smoke-config.yaml
+
+# Smoke test generated reports
+smoke-report/

@@ -1,0 +1,15 @@
+name: "Forum · posts list (table)"
+service: forum
+args:
+  - posts
+  - list
+format: table
+timeout_ms: 10000
+assertions:
+  - type: exit_code
+    value: 0
+  - type: response_time_lt
+    value: 8000
+  - type: stdout_not_empty
+  - type: stderr_not_contains
+    value: "ERROR"

@@ -1,0 +1,38 @@
+# Smoke test config — copy/reference this to set up your local .env or CI secrets.
+#
+# Create a .env file in the repo root with these variables:
+#
+#   SMOKE_GITCODE_TOKEN=glpat-xxxx
+#   SMOKE_GITCODE_OWNER=my-org
+#   SMOKE_GITCODE_REPO=my-test-repo
+#   SMOKE_GITCODE_ISSUE_NUMBER=1
+#
+#   SMOKE_FORUM_URL=https://forum.example.com
+#   SMOKE_FORUM_API_KEY=abc123
+#   SMOKE_FORUM_USERNAME=system
+#
+#   SMOKE_ETHERPAD_URL=https://etherpad.example.com/api/1.3.0
+#   SMOKE_ETHERPAD_API_KEY=abc123
+#
+# In GitHub Actions, add these as repository Secrets (Settings → Secrets → Actions).
+
+services:
+  gitcode:
+    base_url: https://api.gitcode.com
+    auth:
+      gitcode:
+        access_token: YOUR_GITCODE_TOKEN
+
+  forum:
+    spec_url: assets/openapi/forum/openapi.json
+    base_url: https://YOUR_DISCOURSE_INSTANCE
+    auth:
+      discourse:
+        api_key: YOUR_API_KEY
+        api_username: system
+
+  etherpad:
+    base_url: https://YOUR_ETHERPAD/api/1.3.0
+    auth:
+      etherpad:
+        api_key: YOUR_API_KEY
