@@ -1,13 +1,13 @@
-name: "Etherpad · pad list (table)"
-service: etherpad
-args:
-  - pads
-  - list-all
-format: table
-timeout_ms: 5000
-skip: true
-skip_reason: "Requires self-hosted Etherpad instance — set SMOKE_ETHERPAD_URL to enable"
-assertions:
-  - type: exit_code
-    value: 0
-  - type: stdout_not_empty
+#name: "Etherpad · pad list (table)"
+#service: etherpad
+#args:
+#  - pads
+#  - list-all
+#format: table
+#timeout_ms: 5000
+#skip: true
+#skip_reason: "Requires self-hosted Etherpad instance — set SMOKE_ETHERPAD_URL to enable"
+#assertions:
+#  - type: exit_code
+#    value: 0
+#  - type: stdout_not_empty

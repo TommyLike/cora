@@ -15,6 +15,6 @@ assertions:
   - type: exit_code
     value: 0
   - type: json_has_keys
-    values: ["title", "state", "number"]
+    values: ["title", "state", "number", "user", "created_at", "html_url"]
   - type: json_key_not_empty
     key: "title"
