@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cncf/cora/internal/smoke"
 )
@@ -82,15 +83,17 @@ func run() error {
 		}
 	}
 
-	// Write HTML report.
-	if err := os.MkdirAll(*reportDir, 0755); err != nil {
+	// Write HTML report into a dated subdirectory for archiving.
+	// e.g. ./smoke-report/2026-04-19/report.html
+	dateDir := filepath.Join(*reportDir, time.Now().UTC().Format("2006-01-02"))
+	if err := os.MkdirAll(dateDir, 0755); err != nil {
 		return fmt.Errorf("create report dir: %w", err)
 	}
 	html, err := smoke.GenerateHTML(report)
 	if err != nil {
 		return fmt.Errorf("generate HTML: %w", err)
 	}
-	reportPath := filepath.Join(*reportDir, "report.html")
+	reportPath := filepath.Join(dateDir, "report.html")
 	if err := os.WriteFile(reportPath, []byte(html), 0644); err != nil {
 		return fmt.Errorf("write report: %w", err)
 	}

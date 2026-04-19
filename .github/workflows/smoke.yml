@@ -17,6 +17,10 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Get current date
+        id: date
+        run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
       - name: Build cora and smoke-runner
         run: |
           make build-prod
@@ -44,6 +48,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()   # Upload even when smoke tests fail so failures can be reviewed
         with:
-          name: smoke-report-${{ github.run_id }}
-          path: smoke-report/report.html
-          retention-days: 30
+          name: smoke-report-${{ steps.date.outputs.today }}
+          path: smoke-report/${{ steps.date.outputs.today }}/report.html
+          retention-days: 90
