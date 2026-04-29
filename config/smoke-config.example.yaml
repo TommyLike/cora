@@ -7,6 +7,11 @@
 #   SMOKE_GITCODE_REPO=my-test-repo
 #   SMOKE_GITCODE_ISSUE_NUMBER=1
 #
+#   SMOKE_GITHUB_TOKEN=ghp_xxxx
+#   SMOKE_GITHUB_OWNER=my-org
+#   SMOKE_GITHUB_REPO=my-test-repo
+#   SMOKE_GITHUB_ISSUE_NUMBER=1
+#
 #   SMOKE_FORUM_URL=https://forum.example.com
 #   SMOKE_FORUM_API_KEY=abc123
 #   SMOKE_FORUM_USERNAME=system
@@ -22,6 +27,12 @@ services:
     auth:
       gitcode:
         access_token: YOUR_GITCODE_TOKEN
+
+  github:
+    base_url: https://api.github.com
+    auth:
+      github:
+        token: YOUR_GITHUB_TOKEN
 
   forum:
     spec_url: assets/openapi/forum/openapi.json

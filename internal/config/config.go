@@ -53,6 +53,7 @@ type AuthConfig struct {
 	Discourse *DiscourseAuth `yaml:"discourse,omitempty" mapstructure:"discourse"`
 	Etherpad  *EtherpadAuth  `yaml:"etherpad,omitempty"  mapstructure:"etherpad"`
 	Gitcode   *GitcodeAuth   `yaml:"gitcode,omitempty"   mapstructure:"gitcode"`
+	Github    *GithubAuth    `yaml:"github,omitempty"    mapstructure:"github"`
 }
 
 // EtherpadAuth holds the API key for the Etherpad REST API.
@@ -73,6 +74,17 @@ type EtherpadAuth struct {
 //	CORA_SERVICES_<NAME>_AUTH_GITCODE_ACCESS_TOKEN
 type GitcodeAuth struct {
 	AccessToken string `yaml:"access_token" mapstructure:"access_token"`
+}
+
+// GithubAuth holds the personal access token (PAT) or fine-grained token for the
+// GitHub REST API. The token is sent as a Bearer credential in the Authorization
+// header on every request.
+//
+// Override via environment variable:
+//
+//	CORA_SERVICES_<NAME>_AUTH_GITHUB_TOKEN
+type GithubAuth struct {
+	Token string `yaml:"token" mapstructure:"token"`
 }
 
 // DiscourseAuth holds the two header values Discourse requires.

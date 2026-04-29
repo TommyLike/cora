@@ -13,6 +13,7 @@ import (
 // Discourse: injects Api-Key and Api-Username headers.
 // Etherpad:  injects ?apikey= into the request URL's query string.
 // GitCode:   injects ?access_token= into the request URL's query string.
+// GitHub:    injects Authorization: Bearer <token> header.
 //
 // All providers inject credentials unconditionally when present; the server
 // ignores them for public endpoints and enforces them for protected ones.
@@ -39,6 +40,16 @@ func InjectAuth(req *http.Request, svc config.ServiceConfig, svcName string) {
 		q.Set("access_token", g.AccessToken)
 		req.URL.RawQuery = q.Encode()
 		log.Debug("auth: injecting gitcode access_token for service %q", svcName)
+	}
+
+	if h := svc.Auth.Github; h != nil && h.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+h.Token)
+		// GitHub recommends sending an explicit API version header; this also
+		// pins responses to a stable shape regardless of server-side rollouts.
+		if req.Header.Get("X-GitHub-Api-Version") == "" {
+			req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+		}
+		log.Debug("auth: injecting github bearer token for service %q", svcName)
 	}
 }
 

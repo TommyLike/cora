@@ -11,6 +11,7 @@ import (
 const (
 	etherpadName = "etherpad"
 	gitcodeName  = "gitcode"
+	githubName   = "github"
 )
 
 // registerBuiltins adds built-in service entries to the registry and ensures
@@ -37,6 +38,13 @@ func registerBuiltins(r *Registry, cfg *config.Config) {
 	addBuiltin(r, cfg, builtinDef{
 		name:     gitcodeName,
 		specData: assets.GitcodeSpec,
+		cacheDir: cacheDir,
+		ttl:      ttl,
+	})
+
+	addBuiltin(r, cfg, builtinDef{
+		name:     githubName,
+		specData: assets.GithubSpec,
 		cacheDir: cacheDir,
 		ttl:      ttl,
 	})

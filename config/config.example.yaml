@@ -12,6 +12,24 @@ services:
       gitcode:
         access_token: YOUR_GITCODE_PERSONAL_ACCESS_TOKEN
 
+  # ── GitHub ───────────────────────────────────────────────────────────────────
+  # Built-in service — spec is embedded in the binary (no spec_url needed).
+  # base_url is required; the canonical public endpoint is shown below. For
+  # GitHub Enterprise Server, set it to https://<your-host>/api/v3.
+  #
+  # Auth: GitHub uses an OAuth/PAT bearer token.
+  # Create a fine-grained token (recommended) or a classic PAT at:
+  #   https://github.com/settings/tokens
+  # Required scopes depend on which endpoints you call (e.g. `repo` for private
+  # repos, `read:org` for organization metadata, `read:user` for user info).
+  # The token is sent as `Authorization: Bearer <token>` on every request,
+  # alongside `X-GitHub-Api-Version: 2022-11-28`.
+  github:
+    base_url: https://api.github.com
+    auth:
+      github:
+        token: YOUR_GITHUB_PERSONAL_ACCESS_TOKEN
+
   # ── Etherpad ─────────────────────────────────────────────────────────────────
   # Built-in service — spec is embedded in the binary (no spec_url needed).
   # base_url is required; set it to your Etherpad instance's API root.

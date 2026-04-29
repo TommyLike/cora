@@ -93,7 +93,12 @@ func Build(
 		//   2. Within the same context, shallower paths first — a shorter path
 		//      means a more fundamental operation (e.g. /issues/{n} beats
 		//      /issues/comments/{id} for the "get" verb).
-		//   3. Alphabetical by path as a final tiebreaker.
+		//   3. Among same-depth paths, prefer the one whose last non-param
+		//      segment matches the resource name. This ensures the canonical
+		//      "get one <resource>" endpoint wins the bare verb. Without it,
+		//      e.g. GitHub's /repos/{o}/{r}/assignees/{a} would beat
+		//      /repos/{o}/{r}/issues/{n} for the "get" verb under tag "issues".
+		//   4. Alphabetical by path as a final tiebreaker.
 		// This ensures the primary get/list operations receive the clean verb,
 		// and sub-resource operations receive a disambiguated suffix.
 		sort.Slice(ops, func(i, j int) bool {
@@ -114,6 +119,13 @@ func Build(
 			if di != dj {
 				return di < dj
 			}
+			// Same depth: prefer the path whose last non-param segment matches
+			// the resource name (the canonical "/<resource>/{id}" shape).
+			ri := lastPathSegment(ops[i].path) == res
+			rj := lastPathSegment(ops[j].path) == res
+			if ri != rj {
+				return ri
+			}
 			return ops[i].path < ops[j].path
 		})
 
@@ -122,6 +134,14 @@ func Build(
 
 		for _, e := range ops {
 			verb := verbName(e.op.OperationID, e.method, e.path)
+			// Override: if the derived verb equals the resource name, it usually
+			// means a path like /repos/{o}/{r}/issues fired Priority 3 of
+			// verbName (which treats the trailing segment as an "action"). For
+			// CLI ergonomics we want this to render as `<resource> list/create/…`,
+			// not `<resource> issues`. Re-derive purely from HTTP method.
+			if verb == res {
+				verb = httpMethodVerb(e.method, e.path)
+			}
 			if verbSeen[verb] {
 				// First try: qualify with path context (e.g. "enterprise", "user").
 				ctx := pathContext(e.path)
@@ -251,9 +271,20 @@ func verbName(opID, method, path string) string {
 	}
 
 	// Priority 4: HTTP method fallback.
-	// Check whether the LAST path segment is a template param to correctly
-	// distinguish a collection (/issues → list) from a single-item fetch
-	// (/issues/{number} → get), even when owner/repo params appear mid-path.
+	return httpMethodVerb(method, path)
+}
+
+// httpMethodVerb returns the verb derived purely from the HTTP method and
+// whether the path ends in a template param. Extracted so callers can apply
+// it as an override when other heuristics produce undesirable verbs (e.g. a
+// verb equal to the resource name).
+//
+//	GET  /collection      → "list"
+//	GET  /collection/{id} → "get"
+//	POST                  → "create"
+//	PUT/PATCH             → "update"
+//	DELETE                → "delete"
+func httpMethodVerb(method, path string) string {
 	switch strings.ToUpper(method) {
 	case "GET":
 		if hasTrailingParam(path) {

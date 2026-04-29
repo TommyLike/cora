@@ -21,8 +21,9 @@
 
 | 服务                                   | 命令名        | Spec 来源  | 鉴权方式                              |
 |--------------------------------------|------------|----------|-----------------------------------|
-| [ GitCode ](https://gitcode.com)     | `gitcode`  | spec_url | 个人访问令牌（`?access_token=`), 统一认证待补充 |
-| [ Etherpad ](https://etherpad.org)   | `etherpad` | spec_url | API Key（`?apikey=`）, 统一认证待补充      |
+| [ GitCode ](https://gitcode.com)     | `gitcode`  | 内置嵌入     | 个人访问令牌（`?access_token=`), 统一认证待补充 |
+| [ GitHub ](https://github.com)       | `github`   | 内置嵌入     | PAT / Fine-grained Token（`Authorization: Bearer …`） |
+| [ Etherpad ](https://etherpad.org)   | `etherpad` | 内置嵌入     | API Key（`?apikey=`）, 统一认证待补充      |
 | [ Forum ](https://www.discourse.org) | `forum`    | spec_url | API Key + 用户名（请求头）,  统一认证待补充      |
 
 ## 命令结构
@@ -63,6 +64,25 @@ cora gitcode issues list --owner my-org --repo my-repo --format yaml
 
 # 预览请求内容（不实际发送）
 cora gitcode issues create --owner my-org --repo my-repo --title "test" --dry-run
+```
+
+### GitHub
+
+```bash
+# 获取仓库信息
+cora github repos get --owner cncf --repo cora
+
+# 列出仓库 Issue
+cora github issues list --owner cncf --repo cora --state open
+
+# 获取单个 Issue
+cora github issues get --owner cncf --repo cora --issue-number 1
+
+# 列出 Pull Request
+cora github pulls list --owner cncf --repo cora --state open
+
+# JSON 输出 + jq 提取
+cora github issues get --owner cncf --repo cora --issue-number 1 --format json | jq '.title'
 ```
 
 ### Forum（Discourse）
@@ -134,6 +154,13 @@ cora 内置了常用操作的 View 定义（字段选取、格式化），同时
 | gitcode  | `repos list`  | 横向表格         |
 | gitcode  | `pulls get`   | 竖式 KV 表      |
 | gitcode  | `pulls list`  | 横向表格         |
+| github   | `issues get`  | 竖式 KV 表      |
+| github   | `issues list` | 横向表格         |
+| github   | `repos get`   | 竖式 KV 表      |
+| github   | `repos list`  | 横向表格         |
+| github   | `pulls get`   | 竖式 KV 表      |
+| github   | `pulls list`  | 横向表格         |
+| github   | `users get`   | 竖式 KV 表      |
 | forum    | `topics list` | 横向表格         |
 | forum    | `topics get`  | 竖式 KV 表      |
 | forum    | `posts list`  | 横向表格         |
@@ -286,6 +313,13 @@ services:
       gitcode:
         access_token: "你的个人访问令牌"  # GitCode 用户设置 → 个人访问令牌
 
+  # ── GitHub（内置 Spec，无需 spec_url）──
+  github:
+    base_url: https://api.github.com    # 必填；GHE Server 改为 https://<host>/api/v3
+    auth:
+      github:
+        token: "你的 GitHub PAT"          # https://github.com/settings/tokens
+
   # ── Etherpad（内置 Spec，无需 spec_url）──
   etherpad:
     base_url: https://your-etherpad-host/api/1.3.0  # 必填，无默认值
@@ -331,6 +365,7 @@ views_file: ~/.config/cora/views.yaml
 | `CORA_SERVICES_<NAME>_BASE_URL`                    | `services.<name>.base_url`                    | 覆盖指定服务的 API 根地址   |
 | `CORA_SERVICES_<NAME>_SPEC_URL`                    | `services.<name>.spec_url`                    | 覆盖指定服务的 Spec 地址   |
 | `CORA_SERVICES_GITCODE_AUTH_GITCODE_ACCESS_TOKEN`  | `services.gitcode.auth.gitcode.access_token`  | GitCode 个人访问令牌    |
+| `CORA_SERVICES_GITHUB_AUTH_GITHUB_TOKEN`           | `services.github.auth.github.token`           | GitHub PAT / 细粒度令牌 |
 | `CORA_SERVICES_ETHERPAD_AUTH_ETHERPAD_API_KEY`     | `services.etherpad.auth.etherpad.api_key`     | Etherpad API Key  |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_KEY`      | `services.<name>.auth.discourse.api_key`      | Discourse API Key |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_USERNAME` | `services.<name>.auth.discourse.api_username` | Discourse 用户名     |

@@ -159,6 +159,52 @@ func TestInjectAuth_Gitcode_NilSkipped(t *testing.T) {
 	}
 }
 
+// ── InjectAuth: GitHub ───────────────────────────────────────────────────────
+
+func TestInjectAuth_Github_InjectsBearerHeader(t *testing.T) {
+	req := newGETRequest(t, "https://api.github.com/repos/cncf/cora/issues")
+	svc := config.ServiceConfig{
+		Auth: config.AuthConfig{
+			Github: &config.GithubAuth{Token: "ghp_secret"},
+		},
+	}
+	InjectAuth(req, svc, "github")
+
+	if got := req.Header.Get("Authorization"); got != "Bearer ghp_secret" {
+		t.Errorf("Authorization = %q, want %q", got, "Bearer ghp_secret")
+	}
+	if got := req.Header.Get("X-GitHub-Api-Version"); got != "2022-11-28" {
+		t.Errorf("X-GitHub-Api-Version = %q, want %q", got, "2022-11-28")
+	}
+}
+
+func TestInjectAuth_Github_SkipsEmptyToken(t *testing.T) {
+	req := newGETRequest(t, "https://api.github.com/repos/cncf/cora")
+	svc := config.ServiceConfig{
+		Auth: config.AuthConfig{
+			Github: &config.GithubAuth{Token: ""},
+		},
+	}
+	InjectAuth(req, svc, "github")
+
+	if v := req.Header.Get("Authorization"); v != "" {
+		t.Errorf("expected no Authorization header, got %q", v)
+	}
+	if v := req.Header.Get("X-GitHub-Api-Version"); v != "" {
+		t.Errorf("expected no X-GitHub-Api-Version header, got %q", v)
+	}
+}
+
+func TestInjectAuth_Github_NilSkipped(t *testing.T) {
+	req := newGETRequest(t, "https://api.github.com/repos/cncf/cora")
+	svc := config.ServiceConfig{Auth: config.AuthConfig{Github: nil}}
+	InjectAuth(req, svc, "github")
+
+	if v := req.Header.Get("Authorization"); v != "" {
+		t.Errorf("expected no Authorization header, got %q", v)
+	}
+}
+
 // ── IsDiscourseAuthParam ─────────────────────────────────────────────────────
 
 func TestIsDiscourseAuthParam(t *testing.T) {

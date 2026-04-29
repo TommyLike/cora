@@ -71,6 +71,93 @@ var builtinViews = map[string]map[string]ViewConfig{
 		},
 	},
 
+	"github": {
+		"issues/get": {
+			Columns: []ViewColumn{
+				{Field: "number", Label: "No."},
+				{Field: "title", Label: "Title", Truncate: 120},
+				{Field: "state", Label: "State"},
+				{Field: "user.login", Label: "Author"},
+				{Field: "assignees", Label: "Assignees", Format: FormatJSON},
+				{Field: "labels", Label: "Labels", Format: FormatJSON},
+				{Field: "html_url", Label: "URL"},
+				{Field: "created_at", Label: "Created", Format: FormatDate},
+				{Field: "updated_at", Label: "Updated", Format: FormatDate},
+				{Field: "body", Label: "Description", Format: FormatMultiline, Truncate: 600},
+			},
+		},
+		"issues/list": {
+			Columns: []ViewColumn{
+				{Field: "number", Label: "No.", Width: 6},
+				{Field: "title", Label: "Title", Truncate: 50, Width: 52},
+				{Field: "state", Label: "State", Width: 8},
+				{Field: "user.login", Label: "Author", Width: 18},
+				{Field: "created_at", Label: "Created", Format: FormatDate, Width: 12},
+			},
+		},
+		"repos/get": {
+			Columns: []ViewColumn{
+				{Field: "full_name", Label: "Repo"},
+				{Field: "description", Label: "Description", Truncate: 120},
+				{Field: "stargazers_count", Label: "Stars"},
+				{Field: "forks_count", Label: "Forks"},
+				{Field: "open_issues_count", Label: "Open Issues"},
+				{Field: "language", Label: "Language"},
+				{Field: "license.name", Label: "License"},
+				{Field: "default_branch", Label: "Default Branch"},
+				{Field: "topics", Label: "Topics", Format: FormatJSON},
+				{Field: "html_url", Label: "URL"},
+				{Field: "created_at", Label: "Created", Format: FormatDate},
+				{Field: "pushed_at", Label: "Pushed", Format: FormatDate},
+			},
+		},
+		"repos/list": {
+			Columns: []ViewColumn{
+				{Field: "full_name", Label: "Repo", Width: 32},
+				{Field: "description", Label: "Description", Truncate: 40, Width: 42},
+				{Field: "stargazers_count", Label: "Stars", Width: 8},
+				{Field: "language", Label: "Language", Width: 12},
+				{Field: "updated_at", Label: "Updated", Format: FormatDate, Width: 12},
+			},
+		},
+		"pulls/list": {
+			Columns: []ViewColumn{
+				{Field: "number", Label: "No.", Width: 6},
+				{Field: "title", Label: "Title", Truncate: 50, Width: 52},
+				{Field: "state", Label: "State", Width: 8},
+				{Field: "user.login", Label: "Author", Width: 18},
+				{Field: "head.label", Label: "Branch", Width: 24},
+				{Field: "created_at", Label: "Created", Format: FormatDate, Width: 12},
+			},
+		},
+		"pulls/get": {
+			Columns: []ViewColumn{
+				{Field: "number", Label: "No."},
+				{Field: "title", Label: "Title", Truncate: 120},
+				{Field: "state", Label: "State"},
+				{Field: "user.login", Label: "Author"},
+				{Field: "head.label", Label: "From Branch"},
+				{Field: "base.label", Label: "Into Branch"},
+				{Field: "merged", Label: "Merged"},
+				{Field: "html_url", Label: "URL"},
+				{Field: "created_at", Label: "Created", Format: FormatDate},
+				{Field: "body", Label: "Description", Format: FormatMultiline, Truncate: 600},
+			},
+		},
+		"users/get": {
+			Columns: []ViewColumn{
+				{Field: "login", Label: "Login"},
+				{Field: "name", Label: "Name"},
+				{Field: "company", Label: "Company"},
+				{Field: "location", Label: "Location"},
+				{Field: "public_repos", Label: "Public Repos"},
+				{Field: "followers", Label: "Followers"},
+				{Field: "html_url", Label: "URL"},
+				{Field: "created_at", Label: "Created", Format: FormatDate},
+			},
+		},
+	},
+
 	"forum": {
 		"topics/list": {
 			Columns: []ViewColumn{
