@@ -1,0 +1,22 @@
+name: "github/repos-get"
+service: github
+args:
+  - repos
+  - get
+  - --owner
+  - opensourceways
+  - --repo
+  - cora
+format: json
+timeout_ms: 8000
+assertions:
+  - type: exit_code
+    value: 0
+  - type: response_time_lt
+    value: 5000
+  - type: json_has_keys
+    values: ["full_name", "html_url", "default_branch"]
+  - type: json_key_not_empty
+    key: "full_name"
+  - type: stderr_not_contains
+    value: "ERROR"

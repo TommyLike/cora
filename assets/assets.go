@@ -13,3 +13,9 @@ var EtherpadSpec []byte
 //
 //go:embed openapi/gitcode/openapi.json
 var GitcodeSpec []byte
+
+// GithubSpec is the OpenAPI spec for the GitHub v3 REST API,
+// embedded at build time from assets/openapi/github/api.github.com.json.
+//
+//go:embed openapi/github/api.github.com.json
+var GithubSpec []byte

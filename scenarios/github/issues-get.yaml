@@ -1,0 +1,20 @@
+name: "github/issues-get"
+service: github
+args:
+  - issues
+  - get
+  - --owner
+  - opensourceways
+  - --repo
+  - cora
+  - --issue-number
+  - 1
+format: json
+timeout_ms: 5000
+assertions:
+  - type: exit_code
+    value: 0
+  - type: json_has_keys
+    values: ["title", "state", "number", "user", "created_at", "html_url"]
+  - type: json_key_not_empty
+    key: "title"
