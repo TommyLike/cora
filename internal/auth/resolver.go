@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"net/http"
 
 	"github.com/cncf/cora/internal/config"
@@ -50,6 +51,12 @@ func InjectAuth(req *http.Request, svc config.ServiceConfig, svcName string) {
 			req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 		}
 		log.Debug("auth: injecting github bearer token for service %q", svcName)
+	}
+
+	if j := svc.Auth.Jenkins; j != nil && j.Username != "" && j.APIToken != "" {
+		auth := base64.StdEncoding.EncodeToString([]byte(j.Username + ":" + j.APIToken))
+		req.Header.Set("Authorization", "Basic "+auth)
+		log.Debug("auth: injecting jenkins basic auth for service %q", svcName)
 	}
 }
 

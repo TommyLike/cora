@@ -37,7 +37,14 @@ func Print(data []byte, format string, viewCfg *view.ViewConfig) error {
 func printJSON(data []byte) error {
 	var v interface{}
 	if err := json.Unmarshal(data, &v); err != nil {
-		fmt.Println(string(data))
+		// Wrap non-JSON content (e.g. text/plain) so --format json
+		// always produces valid JSON.
+		wrapped := map[string]string{"content": string(data)}
+		pretty, err := json.MarshalIndent(wrapped, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(pretty))
 		return nil
 	}
 	pretty, err := json.MarshalIndent(v, "", "  ")
@@ -54,7 +61,14 @@ func printYAML(data []byte) error {
 	// JSON → interface{} → YAML preserves the full structure.
 	var v interface{}
 	if err := json.Unmarshal(data, &v); err != nil {
-		fmt.Println(string(data))
+		// Wrap non-JSON content (e.g. text/plain) so --format yaml
+		// always produces valid YAML.
+		wrapped := map[string]string{"content": string(data)}
+		out, err := yaml.Marshal(wrapped)
+		if err != nil {
+			return err
+		}
+		fmt.Print(string(out))
 		return nil
 	}
 	out, err := yaml.Marshal(v)
@@ -149,6 +163,8 @@ func renderListTable(items []map[string]interface{}, cols []view.ViewColumn) {
 func printTable(data []byte) error {
 	var v interface{}
 	if err := json.Unmarshal(data, &v); err != nil {
+		// Wrap non-JSON content (e.g. text/plain) so --format table
+		// always produces a readable result.
 		fmt.Println(string(data))
 		return nil
 	}

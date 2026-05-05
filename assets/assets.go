@@ -19,3 +19,9 @@ var GitcodeSpec []byte
 //
 //go:embed openapi/github/api.github.com.json
 var GithubSpec []byte
+
+// JenkinsSpec is the OpenAPI spec for the Jenkins automation server,
+// embedded at build time from assets/openapi/jenkins/openapi.json.
+//
+//go:embed openapi/jenkins/openapi.json
+var JenkinsSpec []byte

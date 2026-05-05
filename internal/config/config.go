@@ -54,6 +54,7 @@ type AuthConfig struct {
 	Etherpad  *EtherpadAuth  `yaml:"etherpad,omitempty"  mapstructure:"etherpad"`
 	Gitcode   *GitcodeAuth   `yaml:"gitcode,omitempty"   mapstructure:"gitcode"`
 	Github    *GithubAuth    `yaml:"github,omitempty"    mapstructure:"github"`
+	Jenkins   *JenkinsAuth   `yaml:"jenkins,omitempty"   mapstructure:"jenkins"`
 }
 
 // EtherpadAuth holds the API key for the Etherpad REST API.
@@ -85,6 +86,21 @@ type GitcodeAuth struct {
 //	CORA_SERVICES_<NAME>_AUTH_GITHUB_TOKEN
 type GithubAuth struct {
 	Token string `yaml:"token" mapstructure:"token"`
+}
+
+// JenkinsAuth holds credentials for the Jenkins REST API.
+// The username and API token are combined and sent as an HTTP Basic Auth header
+// (base64(username:api_token)) on every request.
+//
+// Generate an API token at: JENKINS_URL/user/<you>/configure
+//
+// Override via environment variables:
+//
+//	CORA_SERVICES_<NAME>_AUTH_JENKINS_USERNAME
+//	CORA_SERVICES_<NAME>_AUTH_JENKINS_API_TOKEN
+type JenkinsAuth struct {
+	Username string `yaml:"username"   mapstructure:"username"`
+	APIToken string `yaml:"api_token"  mapstructure:"api_token"`
 }
 
 // DiscourseAuth holds the two header values Discourse requires.

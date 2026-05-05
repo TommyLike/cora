@@ -2,13 +2,13 @@ name: Smoke Tests
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # Daily at UTC 02:00
+    - cron: "0 1 * * *"   # Daily at UTC 02:00
   workflow_dispatch:       # Allow manual trigger from the Actions UI
 
 jobs:
   smoke:
     name: Smoke Test
-    runs-on: ubuntu-latest  # Switch to self-hosted if test environment is on an internal network
+    runs-on: self-hosted  # Switch to self-hosted if test environment is on an internal network
 
     steps:
       - uses: actions/checkout@v4

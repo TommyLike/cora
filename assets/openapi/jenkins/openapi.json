@@ -1,0 +1,441 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Jenkins",
+    "description": "Jenkins automation server REST API — job, build, and queue management",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://jenkins.example.com",
+      "description": "Jenkins server — set base_url in config to override"
+    }
+  ],
+  "security": [
+    {
+      "jenkins_auth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Jobs",
+      "description": "Job management — list, get"
+    },
+    {
+      "name": "Builds",
+      "description": "Build inspection — details, console log, progressive log"
+    },
+    {
+      "name": "Queue",
+      "description": "Build queue"
+    }
+  ],
+  "paths": {
+    "/api/json": {
+      "get": {
+        "summary": "List all jobs",
+        "description": "Returns the top-level Jenkins view, including the list of all configured jobs. Use depth to expand nested details.",
+        "operationId": "listJobs",
+        "tags": [
+          "Jobs"
+        ],
+        "parameters": [
+          {
+            "name": "depth",
+            "in": "query",
+            "description": "Tree depth (0 = top-level only, higher values include nested objects)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "color": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/job/{name}/api/json": {
+      "get": {
+        "summary": "Get job details",
+        "description": "Return full details for a single job, including health reports, buildable status, and nested data based on depth.",
+        "operationId": "getJob",
+        "tags": [
+          "Jobs"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "description": "Job name (URL-encode if it contains special characters)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "description": "Tree depth (0 = top-level only)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "color": {
+                      "type": "string"
+                    },
+                    "buildable": {
+                      "type": "boolean"
+                    },
+                    "inQueue": {
+                      "type": "boolean"
+                    },
+                    "nextBuildNumber": {
+                      "type": "integer"
+                    },
+                    "lastBuild": {
+                      "type": "object"
+                    },
+                    "lastCompletedBuild": {
+                      "type": "object"
+                    },
+                    "healthReport": {
+                      "type": "array"
+                    },
+                    "builds": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/job/{name}/{number}/api/json": {
+      "get": {
+        "summary": "Get build details",
+        "description": "Return details for a specific build of a job, including result, duration, and console summary.",
+        "operationId": "getBuild",
+        "tags": [
+          "Builds"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "description": "Job name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "description": "Build number",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "depth",
+            "in": "query",
+            "description": "Tree depth",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Build details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "number": {
+                      "type": "integer"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "result": {
+                      "type": "string",
+                      "description": "SUCCESS, FAILURE, UNSTABLE, ABORTED, or null (in-progress)"
+                    },
+                    "timestamp": {
+                      "type": "integer"
+                    },
+                    "duration": {
+                      "type": "integer"
+                    },
+                    "building": {
+                      "type": "boolean"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "fullDisplayName": {
+                      "type": "string"
+                    },
+                    "artifacts": {
+                      "type": "array"
+                    },
+                    "actions": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queue/api/json": {
+      "get": {
+        "summary": "List queued and running builds",
+        "description": "Return items currently in the build queue, including pending and actively building tasks.",
+        "operationId": "listQueue",
+        "tags": [
+          "Queue"
+        ],
+        "parameters": [
+          {
+            "name": "depth",
+            "in": "query",
+            "description": "Tree depth",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Queue items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "task": {
+                            "type": "object"
+                          },
+                          "why": {
+                            "type": "string"
+                          },
+                          "inQueueSince": {
+                            "type": "integer"
+                          },
+                          "blocked": {
+                            "type": "boolean"
+                          },
+                          "buildable": {
+                            "type": "boolean"
+                          },
+                          "stuck": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/job/{name}/{number}/consoleText": {
+      "get": {
+        "summary": "Get build console output",
+        "description": "Return the full console log (plain text) for a specific build. Useful for inspecting build output and debugging failures.",
+        "operationId": "logUsingGET",
+        "tags": [
+          "Builds"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "description": "Job name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "description": "Build number",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Build console log",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "description": "Full console output of the build"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/job/{name}/{number}/logText/progressiveText/api/json": {
+      "get": {
+        "summary": "Get progressive console log",
+        "description": "Return the console log progressively (JSON format). Supports offset-based fetching for large logs via the start parameter. The response indicates hasMore when additional chunks are available.",
+        "operationId": "progressiveLogUsingGET",
+        "tags": [
+          "Builds"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "description": "Job name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "description": "Build number",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Byte offset to start reading from (0 = beginning)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Progressive log chunk",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "description": "Log text chunk"
+                    },
+                    "hasMore": {
+                      "type": "boolean",
+                      "description": "Whether more data is available"
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "description": "Current byte offset"
+                    },
+                    "size": {
+                      "type": "integer",
+                      "description": "Size of this chunk in bytes"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "jenkins_auth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Jenkins API Token authentication. Use your Jenkins username and API token (generated at /user/<you>/configure). The token is sent as an HTTP Basic Auth password; the username is sent as-is. Example: base64($USERNAME:$API_TOKEN)"
+      }
+    }
+  }
+}

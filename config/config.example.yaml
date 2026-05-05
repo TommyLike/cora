@@ -39,6 +39,21 @@ services:
       etherpad:
         api_key: YOUR_ETHERPAD_API_KEY
 
+  # ── Jenkins ──────────────────────────────────────────────────────────────────
+  # Built-in service — spec is embedded in the binary (no spec_url needed).
+  # base_url is required; set it to your Jenkins server's root.
+  #
+  # Auth: Jenkins uses HTTP Basic Auth with username + API token.
+  # Generate an API token at: JENKINS_URL/user/<you>/configure
+  # The credentials are sent as Authorization: Basic base64(username:api_token)
+  # on every request.
+  jenkins:
+    base_url: https://jenkins.example.com
+    auth:
+      jenkins:
+        username: YOUR_JENKINS_USERNAME
+        api_token: YOUR_JENKINS_API_TOKEN
+
   # ── Forum (Discourse) ─────────────────────────────────────────────────────────
   # spec_url: URL or local path to the service's OpenAPI spec.
   # Supported: http://, https://, file://, or a bare filesystem path.

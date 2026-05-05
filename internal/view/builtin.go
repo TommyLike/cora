@@ -195,4 +195,55 @@ var builtinViews = map[string]map[string]ViewConfig{
 			},
 		},
 	},
+	"jenkins": {
+		"jobs/list": {
+			RootField: "jobs",
+			Columns: []ViewColumn{
+				{Field: "name", Label: "Name", Width: 40},
+				{Field: "color", Label: "Status", Width: 12},
+				{Field: "url", Label: "URL", Truncate: 60, Width: 62},
+			},
+		},
+		"jobs/get": {
+			Columns: []ViewColumn{
+				{Field: "name", Label: "Name"},
+				{Field: "description", Label: "Description", Truncate: 120},
+				{Field: "color", Label: "Status"},
+				{Field: "buildable", Label: "Buildable"},
+				{Field: "inQueue", Label: "In Queue"},
+				{Field: "nextBuildNumber", Label: "Next Build"},
+				{Field: "url", Label: "URL"},
+			},
+		},
+		"builds/get": {
+			Columns: []ViewColumn{
+				{Field: "number", Label: "No."},
+				{Field: "displayName", Label: "Name"},
+				{Field: "result", Label: "Result"},
+				{Field: "building", Label: "Building"},
+				{Field: "duration", Label: "Duration (ms)"},
+				{Field: "timestamp", Label: "Timestamp", Format: FormatDate},
+				{Field: "url", Label: "URL"},
+			},
+		},
+		"builds/progressive-log": {
+			Columns: []ViewColumn{
+				{Field: "text", Label: "Log", Format: FormatMultiline, Truncate: 2000},
+				{Field: "hasMore", Label: "Has More"},
+				{Field: "offset", Label: "Offset"},
+				{Field: "size", Label: "Size"},
+			},
+		},
+		"queue/list": {
+			RootField: "items",
+			Columns: []ViewColumn{
+				{Field: "id", Label: "ID", Width: 8},
+				{Field: "task.name", Label: "Task", Width: 40},
+				{Field: "why", Label: "Why", Width: 30},
+				{Field: "inQueueSince", Label: "Waiting (ms)", Width: 14},
+				{Field: "blocked", Label: "Blocked", Width: 8},
+				{Field: "stuck", Label: "Stuck", Width: 6},
+			},
+		},
+	},
 }

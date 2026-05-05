@@ -22,10 +22,12 @@ Cora, Community Collaboration CLI. A unified command-line interface to interact 
 | Service | Command | Spec source | Auth method |
 |---------|---------|-------------|-------------|
 | [GitCode](https://gitcode.com) | `gitcode` | Built-in (no `spec_url` needed) | Personal access token (`?access_token=`) |
+| [GitHub](https://github.com) | `github` | Built-in (no `spec_url` needed) | PAT / Fine-grained token (`Authorization: Bearer …`) |
 | [Etherpad](https://etherpad.org) | `etherpad` | Built-in (no `spec_url` needed) | API key (`?apikey=`) |
+| [Jenkins](https://www.jenkins.io) | `jenkins` | Built-in (no `spec_url` needed) | HTTP Basic Auth (`base64(username:api_token)`) |
 | [Forum / Discourse](https://www.discourse.org) | `forum` (customisable) | Requires `spec_url` | API key + username (headers) |
 
-> Built-in services have their OpenAPI spec embedded in the binary — no `spec_url` required. However, `base_url` must be explicitly set in the config file; there are no hardcoded default URLs.
+> Built-in services (gitcode, github, etherpad, jenkins) have their OpenAPI spec embedded in the binary — no `spec_url` required. However, `base_url` must be explicitly set in the config file; there are no hardcoded default URLs.
 
 ## Command Structure
 
@@ -97,6 +99,54 @@ cora etherpad pads get-text --pad-id my-pad
 
 # Create a new pad
 cora etherpad pads create-pad --pad-id new-pad
+```
+
+### GitHub
+
+```bash
+# Get repository details
+cora github repos get --owner cncf --repo cora
+
+# List open issues
+cora github issues list --owner cncf --repo cora --state open
+
+# Get a single issue
+cora github issues get --owner cncf --repo cora --issue-number 1
+
+# List pull requests
+cora github pulls list --owner cncf --repo cora --state open
+
+# JSON output + jq
+cora github issues get --owner cncf --repo cora --issue-number 1 --format json | jq '.title'
+```
+
+### Jenkins
+
+```bash
+# List all jobs
+cora jenkins jobs list
+
+# Get job details
+cora jenkins jobs get --name my-job
+
+# Trigger a build
+cora jenkins jobs build --name my-job
+
+# Enable / disable a job
+cora jenkins jobs enable-job --name my-job
+cora jenkins jobs disable-job --name my-job
+
+# Delete a job
+cora jenkins jobs delete --name my-job
+
+# Get build details
+cora jenkins builds get --name my-job --number 1
+
+# View the queue
+cora jenkins queue list
+
+# JSON output
+cora jenkins jobs list --format json | jq '.jobs[].name'
 ```
 
 ### Global Flags
@@ -295,6 +345,21 @@ services:
       etherpad:
         api_key: "your-etherpad-api-key"
 
+  # ── GitHub (built-in spec — no spec_url needed) ──
+  github:
+    base_url: https://api.github.com    # required; use https://<host>/api/v3 for GHE Server
+    auth:
+      github:
+        token: "your-github-pat"          # https://github.com/settings/tokens
+
+  # ── Jenkins (built-in spec — no spec_url needed) ──
+  jenkins:
+    base_url: https://jenkins.example.com          # required; no default
+    auth:
+      jenkins:
+        username: "your-jenkins-username"
+        api_token: "your-jenkins-api-token"          # JENKINS_URL/user/<you>/configure
+
   # ── Forum / Discourse (spec_url required) ──
   forum:
     # spec_url: URL or local path to the service's OpenAPI spec.
@@ -323,7 +388,7 @@ spec_cache:
 views_file: ~/.config/cora/views.yaml
 ```
 
-> **Note:** Built-in services (`gitcode`, `etherpad`) have no hardcoded default `base_url`. It must be set explicitly in the config file.
+> **Note:** Built-in services (`gitcode`, `github`, `etherpad`, `jenkins`) have no hardcoded default `base_url`. It must be set explicitly in the config file.
 
 ### Environment Variables
 
@@ -339,6 +404,9 @@ All config values can be overridden by `CORA_`-prefixed environment variables. E
 | `CORA_SERVICES_<NAME>_SPEC_URL` | `services.<name>.spec_url` | Override a service's spec URL |
 | `CORA_SERVICES_GITCODE_AUTH_GITCODE_ACCESS_TOKEN` | `services.gitcode.auth.gitcode.access_token` | GitCode personal access token |
 | `CORA_SERVICES_ETHERPAD_AUTH_ETHERPAD_API_KEY` | `services.etherpad.auth.etherpad.api_key` | Etherpad API key |
+| `CORA_SERVICES_GITHUB_AUTH_GITHUB_TOKEN` | `services.github.auth.github.token` | GitHub PAT / fine-grained token |
+| `CORA_SERVICES_JENKINS_AUTH_JENKINS_USERNAME` | `services.jenkins.auth.jenkins.username` | Jenkins username |
+| `CORA_SERVICES_JENKINS_AUTH_JENKINS_API_TOKEN` | `services.jenkins.auth.jenkins.api_token` | Jenkins API token |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_KEY` | `services.<name>.auth.discourse.api_key` | Discourse API key |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_USERNAME` | `services.<name>.auth.discourse.api_username` | Discourse username |
 
@@ -452,7 +520,7 @@ cora/
 │   │   └── formatter_test.go
 │   ├── registry/
 │   │   ├── registry.go               # Service registry
-│   │   └── builtin.go                # Built-in service registration (gitcode, etherpad)
+│   │   └── builtin.go                # Built-in service registration (gitcode, github, etherpad, jenkins)
 │   ├── spec/
 │   │   ├── loader.go                 # Three-tier spec loading
 │   │   ├── cache.go                  # Cache read/write (atomic)

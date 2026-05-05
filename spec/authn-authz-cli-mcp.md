@@ -643,6 +643,20 @@ plugins:
 | `X-Auth-Source` | 自定义（`cli` / `mcp`） | `mcp` |
 | `X-Token-Iss` | `iss` | `https://idp.example.com/realms/cora` |
 
+> **注意：Header 命名无 RFC 标准，为业界惯例**
+>
+> `X-User-Id` 等 Header 没有对应的 IETF RFC，各主流产品命名不同：
+>
+> | 产品 | 注入的 Header |
+> |------|-------------|
+> | AWS ALB + OIDC | `X-Amzn-Oidc-Identity`、`X-Amzn-Oidc-Data` |
+> | APISIX openid-connect 插件 | 可配置，内置 `X-Userinfo` |
+> | Kong JWT + request-transformer | 自定义配置 |
+> | Envoy ext_authz | CheckResponse 自定义注入 |
+>
+> 模式一致，主流开源 Gateway 均原生支持，基本**零开发量**，仅需配置。
+> 本项目统一使用上表命名，后端 middleware 按此读取。
+
 ---
 
 ### 6.3 MCP Server
@@ -893,9 +907,53 @@ cora auth token revoke <token-id>
 
 ### 9.5 API Gateway 安全
 
-- Gateway 是信任边界，后端服务**禁止**直接暴露在公网
-- 后端只信任 Gateway 注入的 Header，拒绝来自非 Gateway 的相同 Header
-- 建议后端与 Gateway 之间走 mTLS 或内网隔离
+Gateway 是整个系统的信任边界，后端服务收到的 `X-User-Id` 等 Header 本身无法自证来源合法性——任何能直连后端的调用方都可以伪造这些 Header。因此**网络层和传输层的防护是必选项**，而非可选建议。
+
+#### 9.5.1 核心原则
+
+- 后端服务**禁止**直接暴露在公网，防火墙只允许来自 Gateway 的入站流量
+- 后端必须**主动剥离**客户端携带的同名 Header，防止 Header 注入攻击：
+  ```go
+  // 后端 middleware：拒绝外部伪造的 X-User-* Header
+  // Gateway 在转发前已移除原始 Authorization，后端收到的 X-User-* 均来自 Gateway
+  // 若请求未经过 Gateway（如内网直连），则这些 Header 不应存在
+  ```
+
+#### 9.5.2 Gateway → 后端安全方案对比
+
+| 方案 | 机制 | 适用场景 | 开发工作量 |
+|------|------|---------|-----------|
+| **网络隔离** | 防火墙 / 安全组限制后端只接受 Gateway IP | 基础保障，必须实施 | 零 |
+| **mTLS（推荐）** | Gateway 持有客户端证书，后端验证证书 | 需更强安全保障 | 配置为主 |
+| **服务网格（K8s）** | Istio / Linkerd 自动注入 mTLS，无需改业务代码 | K8s 部署环境 | 零业务代码改动 |
+| **内部签名 JWT** | Gateway 用私钥签发内部 JWT 传给后端，后端验签 | 无服务网格但需可验证身份 | 后端引入 JWT 验签库 |
+
+#### 9.5.3 推荐落地策略
+
+**K8s 环境**：优先采用 Istio/Linkerd 服务网格，mTLS 自动化，业务代码零改动，同时解决 Gateway→后端和服务间的双向身份验证。SPIFFE/SPIRE 作为底层工作负载身份标准可在后期引入。
+
+**非 K8s 环境**：网络隔离（必选）+ 内部签名 JWT（推荐）：
+
+```
+# Gateway 签发内部 JWT（有效期极短，如 30s）
+{
+  "iss": "api-gateway",
+  "sub": "<original user sub>",
+  "scope": "api:read",
+  "exp": <now + 30s>,
+  "iat": <now>
+}
+# 后端用 Gateway 公钥验签，Header 内容可自证合法性
+# 不再依赖纯网络隔离
+```
+
+#### 9.5.4 Header 防伪造措施（所有方案均需）
+
+无论采用哪种传输安全方案，后端应用层都需要：
+
+1. **剥离入站的 `X-User-*` Header**：在 middleware 最前端清除，防止客户端伪造
+2. **只读取 Gateway 注入的值**：在剥离后再由 Gateway（或内部 JWT 解析）重新写入
+3. **拒绝无身份标识的请求**：`X-User-Id` 为空时直接返回 `401`
 
 ---
 

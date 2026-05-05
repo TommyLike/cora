@@ -318,7 +318,7 @@ services:
 ## 7. CI 集成（GitHub Actions）
 
 ```yaml
-# .github/workflows/smoke.yml.disable
+# .github/workflows/smoke.yml
 name: Smoke Tests
 
 on:

@@ -24,6 +24,7 @@
 | [ GitCode ](https://gitcode.com)     | `gitcode`  | 内置嵌入     | 个人访问令牌（`?access_token=`), 统一认证待补充 |
 | [ GitHub ](https://github.com)       | `github`   | 内置嵌入     | PAT / Fine-grained Token（`Authorization: Bearer …`） |
 | [ Etherpad ](https://etherpad.org)   | `etherpad` | 内置嵌入     | API Key（`?apikey=`）, 统一认证待补充      |
+| [ Jenkins ](https://www.jenkins.io)  | `jenkins`  | 内置嵌入     | HTTP Basic Auth（`base64(username:api_token)`） |
 | [ Forum ](https://www.discourse.org) | `forum`    | spec_url | API Key + 用户名（请求头）,  统一认证待补充      |
 
 ## 命令结构
@@ -115,6 +116,35 @@ cora etherpad pads get-text --pad-id my-pad
 
 # 创建新 pad
 cora etherpad pads create-pad --pad-id new-pad
+```
+
+### Jenkins
+
+```bash
+# 列出所有 Job
+cora jenkins jobs list
+
+# 获取单个 Job 详情
+cora jenkins jobs get --name my-job
+
+# 触发构建
+cora jenkins jobs build --name my-job
+
+# 启用 / 禁用 Job
+cora jenkins jobs enable-job --name my-job
+cora jenkins jobs disable-job --name my-job
+
+# 删除 Job
+cora jenkins jobs delete --name my-job
+
+# 获取构建详情
+cora jenkins builds get --name my-job --number 1
+
+# 查看队列
+cora jenkins queue list
+
+# JSON 格式输出
+cora jenkins jobs list --format json | jq '.jobs[].name'
 ```
 
 ### 全局参数
@@ -327,6 +357,14 @@ services:
       etherpad:
         api_key: "你的 Etherpad API Key"
 
+  # ── Jenkins（内置 Spec，无需 spec_url）──
+  jenkins:
+    base_url: https://jenkins.example.com          # 必填，无默认值
+    auth:
+      jenkins:
+        username: "你的 Jenkins 用户名"
+        api_token: "你的 Jenkins API Token"          # JENKINS_URL/user/<you>/configure
+
   # ── Forum / Discourse（需要 spec_url）──
   forum:
     spec_url: assets/openapi/forum/openapi.json   # 支持 http://、https://、file:// 或裸路径
@@ -350,7 +388,7 @@ spec_cache:
 views_file: ~/.config/cora/views.yaml
 ```
 
-> **注意**：内置服务（gitcode、etherpad）的 `base_url` 没有硬编码默认值，必须在配置文件中显式声明。
+> **注意**：内置服务（gitcode、github、etherpad、jenkins）的 `base_url` 没有硬编码默认值，必须在配置文件中显式声明。
 
 ### 环境变量
 
@@ -367,6 +405,8 @@ views_file: ~/.config/cora/views.yaml
 | `CORA_SERVICES_GITCODE_AUTH_GITCODE_ACCESS_TOKEN`  | `services.gitcode.auth.gitcode.access_token`  | GitCode 个人访问令牌    |
 | `CORA_SERVICES_GITHUB_AUTH_GITHUB_TOKEN`           | `services.github.auth.github.token`           | GitHub PAT / 细粒度令牌 |
 | `CORA_SERVICES_ETHERPAD_AUTH_ETHERPAD_API_KEY`     | `services.etherpad.auth.etherpad.api_key`     | Etherpad API Key  |
+| `CORA_SERVICES_JENKINS_AUTH_JENKINS_USERNAME`     | `services.jenkins.auth.jenkins.username`     | Jenkins 用户名       |
+| `CORA_SERVICES_JENKINS_AUTH_JENKINS_API_TOKEN`    | `services.jenkins.auth.jenkins.api_token`    | Jenkins API Token |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_KEY`      | `services.<name>.auth.discourse.api_key`      | Discourse API Key |
 | `CORA_SERVICES_<NAME>_AUTH_DISCOURSE_API_USERNAME` | `services.<name>.auth.discourse.api_username` | Discourse 用户名     |
 
@@ -480,7 +520,7 @@ cora/
 │   │   └── formatter_test.go
 │   ├── registry/
 │   │   ├── registry.go               # 服务注册表
-│   │   └── builtin.go                # 内置服务注册（gitcode、etherpad）
+│   │   └── builtin.go                # 内置服务注册（gitcode、github、etherpad、jenkins）
 │   ├── spec/
 │   │   ├── loader.go                 # 三段式 Spec 加载
 │   │   ├── cache.go                  # 缓存读写（原子写入）
